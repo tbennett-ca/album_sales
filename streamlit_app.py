@@ -5,6 +5,12 @@ import os
 
 os.chdir("c:/Users/tb450/Desktop/Work etc/album_sales/github/album_sales/")
 
+st.set_page_config(
+    page_title="Real-Time Data Science Dashboard",
+    page_icon="✅",
+    layout="wide",
+)
+
 @st.cache_data
 def load_data(loc, index_col):
     df = pd.read_csv(loc, index_col=index_col)
@@ -81,21 +87,40 @@ df_domestic = df.groupby('Country')[['Country', "% Domestic", "% Domestic Scaled
 df_domestic['Country'] = df_domestic['Country'].replace({'United States': 'United States of America'})
 
 #st.write(df_domestic)
-
-#col1, col2, col3 = st.columns(3)
-
 scaled = st.radio(
-    "Display actual domestic percentages or scale by market size?",
-    ('Actual', 'Scaled'))
+        "Display actual domestic percentages or scale by market size?",
+        ('Actual', 'Scaled'), horizontal=True)
+#col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
-if (scaled == 'Actual'):
-    col = "% Domestic"
-else:
-    col = "% Domestic Scaled"
+with col1:
 
-fig = px.choropleth(df_domestic, geojson=geo, color=col,
-                locations="Country", featureidkey="properties.ADMIN",
-                projection="cylindrical stereographic")
-fig.update_geos(resolution=50)#fitbounds="locations", visible=True)
-fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-st.plotly_chart(fig, use_container_width=False)
+    if (scaled == 'Actual'):
+        col = "% Domestic"
+    else:
+        col = "% Domestic Scaled"
+
+    fig = px.choropleth(df_domestic, geojson=geo, color=col,
+                        title="Automatic Labels Based on Data Frame Column Names",
+                        locations="Country", featureidkey="properties.ADMIN",
+                        projection="cylindrical stereographic")
+    fig.update_geos(resolution=50)#fitbounds="locations", visible=True)
+    fig.update_layout(height=500)
+    #fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    st.plotly_chart(fig, use_container_width=True)
+
+with col2:
+
+    if (scaled == 'Actual'):
+        col = "% Domestic"
+    else:
+        col = "% Domestic Scaled"
+
+    fig2 = px.choropleth(df_domestic, geojson=geo, color=col,
+                         title="Automatic Labels Based on Data Frame Column Names",
+                         locations="Country", featureidkey="properties.ADMIN",
+                         projection="cylindrical stereographic")
+    fig2.update_geos(resolution=50)#fitbounds="locations", visible=True)
+    fig2.update_layout(height=500)
+    #fig2.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+    st.plotly_chart(fig2, use_container_width=True)
