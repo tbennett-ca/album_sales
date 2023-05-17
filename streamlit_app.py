@@ -22,7 +22,9 @@ def load_data(loc, index_col):
     return df
 
 df = load_data('album_sales_wide_5.csv', index_col="Artist")
-#df = df[df['Total'] >= 1000000]
+genres = sorted(list(set(df['Genre'])))
+countries = sorted(list(set(df['Country'])))
+
 #df = df.loc[df['Genre'].isin(['Pop','Rock','Metal','Punk','Indie'])]
 
 # st.write("Here's our first attempt at using data to create a table:")
@@ -131,9 +133,17 @@ chart_artists_asc = alt.Chart(df_sorted_asc).mark_bar().encode(
 # )
 
 #st.write(df_domestic)
-scaled = st.radio(
-        "Display actual domestic sales/percentages or scale by market size?",
-        ('Actual', 'Scaled'), horizontal=True)
+with st.sidebar:
+    scaled = st.radio(
+            "Display actual domestic sales/percentages or scale by market size?",
+            ('Actual', 'Scaled'), horizontal=True)
+    genre_filter = st.multiselect('Select genres (all if blank)', options=genres, default=['Rock','Metal'])
+    country_filter = st.multiselect('Select artist country (all if blank)', options=countries, default=None)
+    sales_col_1, sales_col_2 = st.columns(2)
+    with sales_col_1:
+        sales_filter_min = st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=0)
+    with sales_col_2:
+        sales_filter_max = st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=500)
 #col1, col2, col3 = st.columns(3)
 col_1_1, col_1_2 = st.columns(2)#, col_1_3 = st.columns(3)
 
