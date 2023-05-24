@@ -3,6 +3,8 @@ import pandas as pd
 import altair as alt
 import numpy as np
 import os
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 st.set_page_config(
     page_title="Real-Time Data Science Dashboard",
@@ -69,14 +71,88 @@ def artist_charts():
         col_appendix = " Scaled"
 
     df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[False, False])#[:25]
+    #df_sorted_desc = df_filtered.reset_index().sort_values("Domestic" + col_appendix, ascending=False)#[:25]
+    df_sorted_desc['% Domestic' + col_appendix] = -1*df_sorted_desc['% Domestic' + col_appendix]
     sorted_artists_desc = list(df_sorted_desc['Artist'])
 
-    chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().encode(
-       alt.Y('Artist', sort=sorted_artists_desc), #alt.EncodingSortField(field="% Domestic", op="sum", order='descending')),
-       alt.X('% Domestic' + col_appendix)
+    # def percentFormat(x):
+    #     return np.abs(x)
+    
+    # alt.Config(customFormatTypes=True)
+    # alt.themes.register('percentFormat', percentFormat)
+
+    # TODO: fix this and rename
+    def pub_theme():
+        return {'config': {"axisX": {"labelExpr": "isNumber(datum.label) ? datum.label : abs(datum.label)"}}} #"replace(datum.label, '-', '')"}}}
+    alt.themes.register('pub', pub_theme)
+    alt.themes.enable('pub')
+
+    chart_artists_desc_1 = alt.Chart(df_sorted_desc).mark_bar(color='#0068C9').encode(
+       alt.Y('Artist', sort=sorted_artists_desc),
+       alt.X('% Domestic' + col_appendix)#, axis=alt.Axis(formatType='percentFormat')) 
     )#.interactive()
 
-    st.altair_chart(chart_artists_desc, theme=None, use_container_width=True)
+    chart_artists_desc_2 = alt.Chart(df_sorted_desc).mark_bar(color='#83C9FF').encode(
+       alt.Y('Artist', sort=sorted_artists_desc),
+       alt.X('% Intl' + col_appendix)
+    )
+
+    st.altair_chart(chart_artists_desc_1 + chart_artists_desc_2, theme=None, use_container_width=True)
+
+    # chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().encode(
+    #    alt.Y('Artist', sort=sorted_artists_desc), #alt.EncodingSortField(field="% Domestic", op="sum", order='descending')),
+    #    alt.X('% Domestic' + col_appendix)
+    # )#.interactive()
+
+    # plotly
+    # create subplots
+    # fig = make_subplots(rows=1, cols=2, specs=[[{}, {}]], shared_xaxes=True,
+    #                     shared_yaxes=True, horizontal_spacing=0)
+
+    # fig.append_trace(go.Bar(y=df_sorted_desc['Artist'], x=df_sorted_desc['Domestic']*-1, orientation='h', width=0.4, showlegend=False, marker_color='#4472c4'), 1, 1)
+    # fig.append_trace(go.Bar(y=df_sorted_desc['Artist'], x=df_sorted_desc['Intl'], orientation='h', width=0.4, showlegend=False, marker_color='#ed7d31'), 1, 2)
+    # fig.update_yaxes(showticklabels=False) # hide all yticks
+    
+    # annotations = []
+    # for i, row in df.iterrows():
+    #     if row.label1 != '':
+    #         annotations.append({
+    #             'xref': 'x1',
+    #             'yref': 'y1',
+    #             'y': i,
+    #             'x': row.value1,
+    #             'text': row.value1,
+    #             'xanchor': 'right',
+    #             'showarrow': False})
+    #         annotations.append({
+    #             'xref': 'x1',
+    #             'yref': 'y1',
+    #             'y': i-0.3,
+    #             'x': -1,
+    #             'text': row.label1,
+    #             'xanchor': 'right',
+    #             'showarrow': False})            
+    #     if row.label2 != '':
+    #         annotations.append({
+    #             'xref': 'x2',
+    #             'yref': 'y2',
+    #             'y': i,
+    #             'x': row.value2,
+    #             'text': row.value2,
+    #             'xanchor': 'left',
+    #             'showarrow': False})  
+    #         annotations.append({
+    #             'xref': 'x2',
+    #             'yref': 'y2',
+    #             'y': i-0.3,
+    #             'x': 1,
+    #             'text': row.label2,
+    #             'xanchor': 'left',
+    #             'showarrow': False})
+
+    # fig.update_layout(annotations=annotations)
+    #st.plotly_chart(fig, use_container_width=False)
+    #st.altair_chart(chart_artists_desc, theme=None, use_container_width=True)
 
 #@st.cache_data
 def gen_country_data(df, min_count=5):
