@@ -62,7 +62,9 @@ def country_charts():
                     height=table_height)
         
 def artist_charts():
-    # TODO: update content, fix trapt country
+    # TODO: add pages: 1) Overview, findings, sources etc 2) Country, 3) Artist
+    # TODO: add comparison tables with search, add histogram? scatterplot? count of artists by country?
+    # TODO: fix trapt country, replace dashes with spaces instead of nothing
 
     st.write("### Album sales by artist")
     if (st.session_state.scaled == 'Actual'):
@@ -72,87 +74,40 @@ def artist_charts():
 
     df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[False, False])#[:25]
     #df_sorted_desc = df_filtered.reset_index().sort_values("Domestic" + col_appendix, ascending=False)#[:25]
+    df_sorted_desc['% Domestic OG' + col_appendix] = df_sorted_desc['% Domestic' + col_appendix]
     df_sorted_desc['% Domestic' + col_appendix] = -1*df_sorted_desc['% Domestic' + col_appendix]
     sorted_artists_desc = list(df_sorted_desc['Artist'])
 
-    # def percentFormat(x):
-    #     return np.abs(x)
-    
-    # alt.Config(customFormatTypes=True)
-    # alt.themes.register('percentFormat', percentFormat)
-
-    # TODO: fix this and rename
-    def pub_theme():
-        return {'config': {"axisX": {"labelExpr": "isNumber(datum.label) ? datum.label : abs(datum.label)"}}} #"replace(datum.label, '-', '')"}}}
-    alt.themes.register('pub', pub_theme)
-    alt.themes.enable('pub')
-
-    chart_artists_desc_1 = alt.Chart(df_sorted_desc).mark_bar(color='#0068C9').encode(
-       alt.Y('Artist', sort=sorted_artists_desc),
-       alt.X('% Domestic' + col_appendix)#, axis=alt.Axis(formatType='percentFormat')) 
-    )#.interactive()
-
-    chart_artists_desc_2 = alt.Chart(df_sorted_desc).mark_bar(color='#83C9FF').encode(
-       alt.Y('Artist', sort=sorted_artists_desc),
-       alt.X('% Intl' + col_appendix)
-    )
-
-    st.altair_chart(chart_artists_desc_1 + chart_artists_desc_2, theme=None, use_container_width=True)
-
-    # chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().encode(
-    #    alt.Y('Artist', sort=sorted_artists_desc), #alt.EncodingSortField(field="% Domestic", op="sum", order='descending')),
-    #    alt.X('% Domestic' + col_appendix)
+    # chart_artists_desc_1 = alt.Chart(df_sorted_desc).mark_bar(color='#0068C9').encode(
+    #    alt.Y('Artist', sort=sorted_artists_desc),
+    #    alt.X('% Domestic' + col_appendix, axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10))#, axis=alt.Axis(formatType='percentFormat')) 
     # )#.interactive()
 
-    # plotly
-    # create subplots
-    # fig = make_subplots(rows=1, cols=2, specs=[[{}, {}]], shared_xaxes=True,
-    #                     shared_yaxes=True, horizontal_spacing=0)
+    # chart_artists_desc_2 = alt.Chart(df_sorted_desc).mark_bar(color='#83C9FF').encode(
+    #    alt.Y('Artist', sort=sorted_artists_desc),
+    #    alt.X('% Intl' + col_appendix)
+    # )
 
-    # fig.append_trace(go.Bar(y=df_sorted_desc['Artist'], x=df_sorted_desc['Domestic']*-1, orientation='h', width=0.4, showlegend=False, marker_color='#4472c4'), 1, 1)
-    # fig.append_trace(go.Bar(y=df_sorted_desc['Artist'], x=df_sorted_desc['Intl'], orientation='h', width=0.4, showlegend=False, marker_color='#ed7d31'), 1, 2)
-    # fig.update_yaxes(showticklabels=False) # hide all yticks
-    
-    # annotations = []
-    # for i, row in df.iterrows():
-    #     if row.label1 != '':
-    #         annotations.append({
-    #             'xref': 'x1',
-    #             'yref': 'y1',
-    #             'y': i,
-    #             'x': row.value1,
-    #             'text': row.value1,
-    #             'xanchor': 'right',
-    #             'showarrow': False})
-    #         annotations.append({
-    #             'xref': 'x1',
-    #             'yref': 'y1',
-    #             'y': i-0.3,
-    #             'x': -1,
-    #             'text': row.label1,
-    #             'xanchor': 'right',
-    #             'showarrow': False})            
-    #     if row.label2 != '':
-    #         annotations.append({
-    #             'xref': 'x2',
-    #             'yref': 'y2',
-    #             'y': i,
-    #             'x': row.value2,
-    #             'text': row.value2,
-    #             'xanchor': 'left',
-    #             'showarrow': False})  
-    #         annotations.append({
-    #             'xref': 'x2',
-    #             'yref': 'y2',
-    #             'y': i-0.3,
-    #             'x': 1,
-    #             'text': row.label2,
-    #             'xanchor': 'left',
-    #             'showarrow': False})
+    # st.altair_chart(chart_artists_desc_1 + chart_artists_desc_2, theme=None, use_container_width=True)
 
-    # fig.update_layout(annotations=annotations)
-    #st.plotly_chart(fig, use_container_width=False)
-    #st.altair_chart(chart_artists_desc, theme=None, use_container_width=True)
+    chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
+        fold=['% Domestic' + col_appendix, '% Intl' + col_appendix], 
+        as_=['‎', '% Domestic/Intl']
+    ).encode(
+        y=alt.Y('Artist', sort=sorted_artists_desc),
+        x=alt.X('% Domestic/Intl:Q', axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10)),
+        color='‎:N',
+        tooltip=['Artist', 
+                 alt.Tooltip('Total' + col_appendix, format=","), 
+                 alt.Tooltip('Domestic' + col_appendix, format=","), 
+                 alt.Tooltip('Intl' + col_appendix, format=","), 
+                 alt.Tooltip('% Domestic OG' + col_appendix, format=".0f", title='% Domestic'), 
+                 alt.Tooltip('% Intl' + col_appendix, format=".0f")]
+    ).configure_legend(
+        orient='bottom'
+    )
+
+    st.altair_chart(chart_artists_desc, use_container_width=True)
 
 #@st.cache_data
 def gen_country_data(df, min_count=5):
@@ -191,9 +146,14 @@ if __name__ == '__main__':
     load_sidebar()
     df_filtered = apply_filters(df_full)
     df_domestic = gen_country_data(df_filtered)
+
+    tab_overview, tab_country, tab_artist = st.tabs(["Overview", "Country", "Artists"])
     
-    country_charts()
-    artist_charts()
+    with tab_country:
+        country_charts()
+
+    with tab_artist:   
+        artist_charts()
 
 ### Artists sorted 
 
