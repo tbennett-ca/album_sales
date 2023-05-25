@@ -3,8 +3,9 @@ import pandas as pd
 import altair as alt
 import numpy as np
 import os
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+#import plotly.graph_objects as go
+#from plotly.subplots import make_subplots
+import plotly.express as px
 
 st.set_page_config(
     page_title="Real-Time Data Science Dashboard",
@@ -33,9 +34,15 @@ def load_sidebar():
         st.multiselect('Select artist country (all if blank)', options=countries, default=None, key='country_filter')
         sales_col_1, sales_col_2 = st.columns(2)
         with sales_col_1:
-            st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=0, on_change=adjust_sales_filter, key='min_sales')
+            if "min_sales" in st.session_state:
+                st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, on_change=adjust_sales_filter, key='min_sales')
+            else:
+                st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=0, on_change=adjust_sales_filter, key='min_sales')
         with sales_col_2:
-            st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=500, on_change=adjust_sales_filter, key='max_sales')
+            if "max_sales" in st.session_state:
+                st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, on_change=adjust_sales_filter, key='max_sales')
+            else:
+                st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=500, on_change=adjust_sales_filter, key='max_sales')
 
 def adjust_sales_filter():
     st.session_state.max_sales = max(st.session_state.max_sales, st.session_state.min_sales+1)
@@ -59,20 +66,96 @@ def country_charts():
     with col_1_2:
         table_height = (len(df_domestic)+1)*35 + 3
         st.dataframe(df_domestic[["Domestic" + col_appendix, "Intl" + col_appendix, "Total" + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix, "Artist Count"]],
-                    height=table_height)
+                    height=table_height, use_container_width=True)
+        
+    df_country_top = pd.DataFrame(df_filtered.groupby('Country')['Total' + col_appendix].nlargest(5))
+    df_country_top['Rank'] = df_country_top.groupby('Country').rank(ascending=False, method='first')
+    df_country_top_wide = df_country_top.drop('Total' + col_appendix, axis=1).reset_index().pivot_table(index='Country', columns='Rank', values='Artist', aggfunc=lambda x: ' '.join(x), fill_value='')
+    df_country_top_wide.columns = ['Artist #1', 'Artist #2', 'Artist #3', 'Artist #4', 'Artist #5']
+    table_height = (len(df_country_top_wide)+1)*35 + 3
+    st.dataframe(df_country_top_wide, height=table_height, use_container_width=True)
         
 def artist_charts():
-    # TODO: add pages: 1) Overview, findings, sources etc 2) Country, 3) Artist
-    # TODO: add comparison tables with search, add histogram? scatterplot? count of artists by country?
-    # TODO: fix trapt country, replace dashes with spaces instead of nothing
-
     st.write("### Album sales by artist")
     if (st.session_state.scaled == 'Actual'):
         col_appendix = ""
+        sales_cols = 'Sales' 
     else:
         col_appendix = " Scaled"
+        sales_cols = 'Scaled' 
 
-    df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[False, False])#[:25]
+    ### Histogram & Scatterplot
+
+    histogram = alt.Chart(df_filtered).mark_bar(
+        opacity=1,
+        binSpacing=0
+    ).encode(
+        alt.X('% Domestic' + col_appendix + ':Q', bin=alt.Bin(maxbins=5)),
+        alt.Y('count()')
+    )
+
+    scatter = px.scatter(df_filtered.reset_index(), 
+                     x="Intl" + col_appendix, y="Domestic" + col_appendix, 
+                     hover_name="Artist", 
+                     log_x=True, log_y=True,
+                     range_x=[5e3, 5e8], range_y=[5e3, 5e8])
+    scatter.update_layout(shapes = [{'type': 'line', 'yref': 'paper', 'xref': 'paper', 'y0': 0, 'y1': 1, 'x0': 0, 'x1': 1}])
+
+    col_1_1, col_1_2 = st.columns([1,2])
+
+    with col_1_1:
+        st.altair_chart(histogram, use_container_width=False)
+
+    with col_1_2:
+        st.plotly_chart(scatter)
+
+    ### Artist comparison
+
+    display_cols = ['Country', 'Genre', 'Total' + col_appendix, 'Domestic' + col_appendix, 'Intl' + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix]
+
+    col_2_1, col_2_2 = st.columns(2)
+
+    with col_2_1:
+        st.selectbox('Artist #1', sorted(df_filtered.index), key='artist1')
+        st.dataframe(df_filtered[display_cols].filter(items=[st.session_state.artist1], axis=0), use_container_width=True)
+
+    with col_2_2:
+        st.selectbox('Artist #2', sorted(df_filtered.index), key='artist2')
+        st.dataframe(df_filtered[display_cols].filter(items=[st.session_state.artist2], axis=0), use_container_width=True)
+
+    col_3_1, col_3_2 = st.columns(2)
+
+    with col_3_1:
+        df_artist_comp = df_filtered.filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
+        df_artist_long = pd.melt(df_artist_comp, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
+        df_artist_long = pd.melt(df_artist_comp, value_vars=['Domestic' + col_appendix, 'Intl' + col_appendix], var_name='‎', value_name='Sales' + col_appendix, ignore_index=False)
+
+        artist_comp_chart = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
+            alt.X('Artist'),
+            alt.Y('Sales' + col_appendix),
+            color='‎'
+        ).interactive()
+        
+        st.altair_chart(artist_comp_chart, use_container_width=True)
+    
+    with col_3_2:
+        df_artist_comp = df_filtered.filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
+        df_artist_comp = df_artist_comp.filter(regex=sales_cols + '\|', axis=1)
+        df_artist_comp.columns = df_artist_comp.columns.str.replace(sales_cols + '\|', '', regex=True)
+        df_artist_long = pd.melt(df_artist_comp, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
+        df_artist_long = df_artist_long.loc[df_artist_long['Sales' + col_appendix] > 0]
+        
+        artist_comp_chart_full = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
+            alt.X('Artist'),
+            alt.Y('Sales' + col_appendix),
+            color='Country'
+        ).interactive()
+
+        st.altair_chart(artist_comp_chart_full, use_container_width=True)
+
+    ### Full artist list chart
+
+    df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[False, False])
     #df_sorted_desc = df_filtered.reset_index().sort_values("Domestic" + col_appendix, ascending=False)#[:25]
     df_sorted_desc['% Domestic OG' + col_appendix] = df_sorted_desc['% Domestic' + col_appendix]
     df_sorted_desc['% Domestic' + col_appendix] = -1*df_sorted_desc['% Domestic' + col_appendix]
@@ -147,38 +230,15 @@ if __name__ == '__main__':
     df_filtered = apply_filters(df_full)
     df_domestic = gen_country_data(df_filtered)
 
-    tab_overview, tab_country, tab_artist = st.tabs(["Overview", "Country", "Artists"])
+    tab_overview, tab_country_origin, tab_country_sale, tab_artist = st.tabs(["Overview", "Origin Country", "Sale Country","Artists"])
     
-    with tab_country:
+    with tab_country_origin:
         country_charts()
 
     with tab_artist:   
         artist_charts()
 
-### Artists sorted 
-
-#df = df.loc[df['Genre'].isin(['Pop','Rock','Metal','Punk','Indie'])]
-# df_sorted_desc = df.reset_index().sort_values(["% Domestic", "Total"], ascending=[False, False])[:25]
-# sorted_artists_desc = list(df_sorted_desc['Artist'])
-
-# chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().encode(
-#    alt.Y('Artist', sort=sorted_artists_desc), #alt.EncodingSortField(field="% Domestic", op="sum", order='descending')),
-#    alt.X('% Domestic')
-# ).interactive()
-
-# df_sorted_asc = df.reset_index().sort_values(["% Domestic", "Total"], ascending=[True, False])[:25]
-# sorted_artists_asc = list(df_sorted_asc['Artist'])
-
-# chart_artists_asc = alt.Chart(df_sorted_asc).mark_bar().encode(
-#    alt.Y('Artist', sort=sorted_artists_asc), #alt.EncodingSortField(field="% Domestic", op="sum", order='descending')),
-#    alt.X('% Domestic')
-# ).interactive()
-
-# col_2_1, col_2_2 = st.columns(2)
-
-# with col_2_1:
-#     #st.bar_chart(df[["Domestic" + col_appendix, "Intl" + col_appendix]])
-#     st.altair_chart(chart_artists_desc, theme=None, use_container_width=True)
-
-# with col_2_2:
-#     st.altair_chart(chart_artists_asc, theme=None, use_container_width=True)
+# TODO: add pages: 1) Overview, findings, sources etc 2) Country, 3) Artist
+# TODO: add count of artists by country? top k artists by country? similar data but for sale country?
+# TODO: fix trapt country, replace dashes with spaces instead of nothing
+# TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
