@@ -25,6 +25,11 @@ def load_data(loc, index_col):
     df['% Intl Scaled'] = 100-df['% Domestic Scaled']
     return df
 
+@st.cache_data
+def load_pop_data(loc):
+    df = pd.read_csv(loc, index_col='Country')
+    return df
+
 def load_sidebar():
     with st.sidebar:
         _ = st.radio(
@@ -57,17 +62,37 @@ def country_charts():
     else:
         col_appendix = " Scaled"
 
+    ### Domestic/International sales by country
+
     with col_1_1:
         st.bar_chart(df_domestic[["Domestic" + col_appendix, "Intl" + col_appendix]])
 
-    #with col_1_2:
+    with col_1_2:
         st.bar_chart(df_domestic[["% Domestic" + col_appendix, "% Intl" + col_appendix]])
 
-    with col_1_2:
-        table_height = (len(df_domestic)+1)*35 + 3
-        st.dataframe(df_domestic[["Domestic" + col_appendix, "Intl" + col_appendix, "Total" + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix, "Artist Count"]],
-                    height=table_height, use_container_width=True)
-        
+    # with col_1_2:
+    #     table_height = (len(df_domestic)+1)*35 + 3
+    #     st.dataframe(df_domestic[["Domestic" + col_appendix, "Intl" + col_appendix, "Total" + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix, "Artist Count"]],
+    #                 height=table_height, use_container_width=True)
+    
+    ### Average sales per artist, average artists per population
+
+    avg_col = 'Avg Sales' + col_appendix + '/Artist'
+    sales_per_col = 'Sales' + col_appendix + '/Person'
+    artists_per_mil_col = 'Artists' + col_appendix + '/Million People'
+    
+    display_cols = ["Domestic" + col_appendix, "Intl" + col_appendix, "Total" + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix, 
+                    'Artist Count', 'Population', avg_col, sales_per_col, artists_per_mil_col]
+
+    df_domestic['Population'] = df_domestic.merge(right=df_population, on='Country')['Population']
+    df_domestic[avg_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Artist Count'], 0)
+    df_domestic[sales_per_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Population'], 2)
+    df_domestic[artists_per_mil_col] = round(df_domestic['Artist Count'] / df_domestic['Population'] * 1e6, 2)
+    st.dataframe(df_domestic[display_cols], use_container_width=True)
+    #st.dataframe(df_domestic.merge(right=df_population, on='Country'))
+
+    ### Top artists by country
+
     df_country_top = pd.DataFrame(df_filtered.groupby('Country')['Total' + col_appendix].nlargest(5))
     df_country_top['Rank'] = df_country_top.groupby('Country').rank(ascending=False, method='first')
     df_country_top_wide = df_country_top.drop('Total' + col_appendix, axis=1).reset_index().pivot_table(index='Country', columns='Rank', values='Artist', aggfunc=lambda x: ' '.join(x), fill_value='')
@@ -225,6 +250,7 @@ if __name__ == '__main__':
     df_full = load_data('album_sales_wide_5.csv', index_col="Artist")
     genres = sorted(list(set(df_full['Genre'])))
     countries = sorted(list(set(df_full['Country'])))
+    df_population = load_pop_data('population_by_country_2020.csv')
 
     load_sidebar()
     df_filtered = apply_filters(df_full)
@@ -239,6 +265,6 @@ if __name__ == '__main__':
         artist_charts()
 
 # TODO: add pages: 1) Overview, findings, sources etc 2) Country, 3) Artist
-# TODO: add count of artists by country? top k artists by country? similar data but for sale country?
-# TODO: fix trapt country, replace dashes with spaces instead of nothing
+# TODO: average sales by country? artists/population?
+# TODO: fix trapt country, replace dashes with spaces instead of nothing, add in population by country
 # TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
