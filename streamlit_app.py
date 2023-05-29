@@ -33,19 +33,19 @@ def load_pop_data(loc):
 def load_sidebar():
     with st.sidebar:
         _ = st.radio(
-                "Display actual domestic sales/percentages or scale by market size?",
+                "Display actual sales/percentages or scale by market size?",
                 ('Actual', 'Scaled'), horizontal=True, key='scaled'),
         st.multiselect('Select genres (all if blank)', options=genres, default=['Rock','Metal'], key='genre_filter')
-        st.multiselect('Select artist country (all if blank)', options=countries, default=None, key='country_filter')
+        #st.multiselect('Select artist country (all if blank)', options=countries, default=None, key='country_filter')
         sales_col_1, sales_col_2 = st.columns(2)
         with sales_col_1:
             if "min_sales" in st.session_state:
-                st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, on_change=adjust_sales_filter, key='min_sales')
+                st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=st.session_state.min_sales, on_change=adjust_sales_filter, key='min_sales')
             else:
                 st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=0, on_change=adjust_sales_filter, key='min_sales')
         with sales_col_2:
             if "max_sales" in st.session_state:
-                st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, on_change=adjust_sales_filter, key='max_sales')
+                st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=st.session_state.max_sales, on_change=adjust_sales_filter, key='max_sales')
             else:
                 st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=500, on_change=adjust_sales_filter, key='max_sales')
 
@@ -54,13 +54,13 @@ def adjust_sales_filter():
 
 def country_charts():
     st.write("### Album sales by origin country")
-    
-    col_1_1, col_1_2 = st.columns(2)
 
     if (st.session_state.scaled == 'Actual'):
         col_appendix = ""
     else:
         col_appendix = " Scaled"
+
+    col_1_1, col_1_2 = st.columns(2)
 
     ### Domestic/International sales by country
 
@@ -77,19 +77,43 @@ def country_charts():
     
     ### Average sales per artist, average artists per population
 
-    avg_col = 'Avg Sales' + col_appendix + '/Artist'
+    #avg_col = 'Avg Sales' + col_appendix + '/Artist'
     sales_per_col = 'Sales' + col_appendix + '/Person'
     artists_per_mil_col = 'Artists' + col_appendix + '/Million People'
     
-    display_cols = ["Domestic" + col_appendix, "Intl" + col_appendix, "Total" + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix, 
-                    'Artist Count', 'Population', avg_col, sales_per_col, artists_per_mil_col]
+    display_formats = {"Domestic" + col_appendix: '{:,.0f}', "Intl" + col_appendix: '{:,.0f}', "Total" + col_appendix: '{:,.0f}', "% Domestic" + col_appendix: "{:.0f}%", 
+                       "% Intl" + col_appendix: "{:.0f}%", 'Artist Count': '{:,.0f}', 'Population': '{:,.0f}', sales_per_col: '{:,.1f}', 
+                       artists_per_mil_col: "{:.1f}"}
+    display_cols = display_formats.keys()
 
     df_domestic['Population'] = df_domestic.merge(right=df_population, on='Country')['Population']
-    df_domestic[avg_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Artist Count'], 0)
+    #df_domestic[avg_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Artist Count'], 0)
     df_domestic[sales_per_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Population'], 2)
     df_domestic[artists_per_mil_col] = round(df_domestic['Artist Count'] / df_domestic['Population'] * 1e6, 2)
-    st.dataframe(df_domestic[display_cols], use_container_width=True)
+    #st.dataframe(df_domestic[display_cols].style.background_gradient(cmap='Blues', low=0.2, high=1).format(display_formats), use_container_width=True)
+
+    col_2_1, col_2_2 = st.columns(2)
+
+    ### Domestic/International sales by country
+
+    with col_2_1:
+        st.altair_chart(alt.Chart(df_domestic.reset_index()).mark_bar().encode(
+            alt.X('Country'),
+            alt.Y(sales_per_col),
+            color=alt.value('lightseagreen')
+        ), use_container_width=True)
+
+    with col_2_2:
+        st.altair_chart(alt.Chart(df_domestic.reset_index()).mark_bar().encode(
+            alt.X('Country'),
+            alt.Y(artists_per_mil_col),
+            color=alt.value('mediumslateblue')
+        ), use_container_width=True)
+
     #st.dataframe(df_domestic.merge(right=df_population, on='Country'))
+    # table_height = (len(df_domestic)+1)*35 + 3
+    # st.dataframe(df_domestic[display_cols].style.format(display_formats), height=table_height, use_container_width=True)
+    # st.dataframe(df_domestic[display_cols].style.format(display_formats), use_container_width=True)
 
     ### Top artists by country
 
@@ -97,11 +121,42 @@ def country_charts():
     df_country_top['Rank'] = df_country_top.groupby('Country').rank(ascending=False, method='first')
     df_country_top_wide = df_country_top.drop('Total' + col_appendix, axis=1).reset_index().pivot_table(index='Country', columns='Rank', values='Artist', aggfunc=lambda x: ' '.join(x), fill_value='')
     df_country_top_wide.columns = ['Artist #1', 'Artist #2', 'Artist #3', 'Artist #4', 'Artist #5']
+    
     table_height = (len(df_country_top_wide)+1)*35 + 3
     st.dataframe(df_country_top_wide, height=table_height, use_container_width=True)
+
+def sale_country_charts():
+    st.write("### Album sales by sale country")
+
+    if (st.session_state.scaled == 'Actual'):
+        col_appendix = ""
+    else:
+        col_appendix = " Scaled"
+
+    df_sale_country = gen_sale_country_data(df_filtered) 
+
+    col_1_1, col_1_2 = st.columns(2)
+
+    ### Domestic/International sales by sale country
+
+    min_sales = 10e6
+    with col_1_1:
+        st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["Domestic" + col_appendix, "Intl" + col_appendix]])
+
+    with col_1_2:
+        st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["% Domestic" + col_appendix, "% Intl" + col_appendix]])
+
+    df_sale_country = df_sale_country.drop(['Total' + col_appendix, 'Domestic' + col_appendix, 'Intl' + col_appendix, '% Domestic' + col_appendix, '% Intl' + col_appendix], axis=1)
+    df_sale_country = df_sale_country/df_sale_country.sum(axis=0)
+
+    fig = px.imshow(df_sale_country.transpose(),
+                    labels=dict(x="Sale Country", y="Origin Country", color="Proporion Sales" + col_appendix),
+                    aspect='auto')
+    st.plotly_chart(fig, use_container_width=True)
         
 def artist_charts():
     st.write("### Album sales by artist")
+
     if (st.session_state.scaled == 'Actual'):
         col_appendix = ""
         sales_cols = 'Sales' 
@@ -229,6 +284,34 @@ def gen_country_data(df, min_count=5):
     df_domestic = df_domestic[df_domestic['Artist Count'] >= min_count]
     return df_domestic
 
+def gen_sale_country_data(df):
+    if (st.session_state.scaled == 'Actual'):
+        col_appendix = ""
+        sales_cols = 'Sales' 
+    else:
+        col_appendix = " Scaled"
+        sales_cols = 'Scaled'
+
+    def domestic_sales(df, c):
+        sales = 0
+        if c in df.columns:
+            sales = df.loc[c,c]
+        return sales
+
+    df_sale_country = df.copy()
+    df_sale_country = df_sale_country.set_index('Country')
+    df_sale_country = df_sale_country.filter(regex=sales_cols + '\|', axis=1)
+    df_sale_country.columns = df_sale_country.columns.str.replace(sales_cols + '\|', '', regex=True)
+    df_sale_country = df_sale_country.groupby('Country').sum()
+    df_sale_country = df_sale_country.transpose()
+    df_sale_country['Total' + col_appendix] = df_sale_country.sum(axis=1)
+    df_sale_country['Domestic' + col_appendix] = [domestic_sales(df_sale_country, c) for c in df_sale_country.index]
+    df_sale_country['Intl' + col_appendix] = df_sale_country['Total' + col_appendix] - df_sale_country['Domestic' + col_appendix]
+    df_sale_country['% Domestic' + col_appendix] = round(df_sale_country['Domestic' + col_appendix] / df_sale_country['Total' + col_appendix] * 100, 1)
+    df_sale_country['% Intl' + col_appendix] = round(df_sale_country['Intl' + col_appendix] / df_sale_country['Total' + col_appendix] * 100, 1)
+    
+    return df_sale_country
+
 def apply_filters(df_full):
     df = df_full.copy()
 
@@ -236,9 +319,9 @@ def apply_filters(df_full):
     if len(st.session_state.genre_filter) > 0:
         df = df.loc[df['Genre'].isin(st.session_state.genre_filter)]
 
-    # Country
-    if len(st.session_state.country_filter) > 0:
-        df = df.loc[df['Country'].isin(st.session_state.country_filter)]
+    # # Country
+    # if len(st.session_state.country_filter) > 0:
+    #     df = df.loc[df['Country'].isin(st.session_state.country_filter)]
 
     # Sales
     df = df.loc[(df['Total'] >= st.session_state.min_sales*1000000) & (df['Total'] <= st.session_state.max_sales*1000000)]
@@ -254,17 +337,19 @@ if __name__ == '__main__':
 
     load_sidebar()
     df_filtered = apply_filters(df_full)
-    df_domestic = gen_country_data(df_filtered)
+    df_domestic = gen_country_data(df_filtered, min_count=1)
 
     tab_overview, tab_country_origin, tab_country_sale, tab_artist = st.tabs(["Overview", "Origin Country", "Sale Country","Artists"])
     
     with tab_country_origin:
         country_charts()
 
+    with tab_country_sale:   
+        sale_country_charts()
+
     with tab_artist:   
         artist_charts()
 
-# TODO: add pages: 1) Overview, findings, sources etc 2) Country, 3) Artist
-# TODO: average sales by country? artists/population?
-# TODO: fix trapt country, replace dashes with spaces instead of nothing, add in population by country
+# TODO: merge country pages?
+# TODO: fix trapt/ozzy country, replace dashes with spaces instead of nothing, add in population by country
 # TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
