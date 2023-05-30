@@ -40,12 +40,12 @@ def load_sidebar():
         sales_col_1, sales_col_2 = st.columns(2)
         with sales_col_1:
             if "min_sales" in st.session_state:
-                st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=st.session_state.min_sales, on_change=adjust_sales_filter, key='min_sales')
+                st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, on_change=adjust_sales_filter, key='min_sales')
             else:
                 st.number_input('Enter min sales (millions)', min_value=0, max_value = 100, value=0, on_change=adjust_sales_filter, key='min_sales')
         with sales_col_2:
             if "max_sales" in st.session_state:
-                st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=st.session_state.max_sales, on_change=adjust_sales_filter, key='max_sales')
+                st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, on_change=adjust_sales_filter, key='max_sales')
             else:
                 st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=500, on_change=adjust_sales_filter, key='max_sales')
 
@@ -69,28 +69,15 @@ def country_charts():
 
     with col_1_2:
         st.bar_chart(df_domestic[["% Domestic" + col_appendix, "% Intl" + col_appendix]])
-
-    # with col_1_2:
-    #     table_height = (len(df_domestic)+1)*35 + 3
-    #     st.dataframe(df_domestic[["Domestic" + col_appendix, "Intl" + col_appendix, "Total" + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix, "Artist Count"]],
-    #                 height=table_height, use_container_width=True)
     
     ### Average sales per artist, average artists per population
 
-    #avg_col = 'Avg Sales' + col_appendix + '/Artist'
     sales_per_col = 'Sales' + col_appendix + '/Person'
     artists_per_mil_col = 'Artists' + col_appendix + '/Million People'
-    
-    display_formats = {"Domestic" + col_appendix: '{:,.0f}', "Intl" + col_appendix: '{:,.0f}', "Total" + col_appendix: '{:,.0f}', "% Domestic" + col_appendix: "{:.0f}%", 
-                       "% Intl" + col_appendix: "{:.0f}%", 'Artist Count': '{:,.0f}', 'Population': '{:,.0f}', sales_per_col: '{:,.1f}', 
-                       artists_per_mil_col: "{:.1f}"}
-    display_cols = display_formats.keys()
 
     df_domestic['Population'] = df_domestic.merge(right=df_population, on='Country')['Population']
-    #df_domestic[avg_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Artist Count'], 0)
     df_domestic[sales_per_col] = round(df_domestic['Total' + col_appendix] / df_domestic['Population'], 2)
     df_domestic[artists_per_mil_col] = round(df_domestic['Artist Count'] / df_domestic['Population'] * 1e6, 2)
-    #st.dataframe(df_domestic[display_cols].style.background_gradient(cmap='Blues', low=0.2, high=1).format(display_formats), use_container_width=True)
 
     col_2_1, col_2_2 = st.columns(2)
 
@@ -100,7 +87,7 @@ def country_charts():
         st.altair_chart(alt.Chart(df_domestic.reset_index()).mark_bar().encode(
             alt.X('Country'),
             alt.Y(sales_per_col),
-            color=alt.value('lightseagreen')
+            color=alt.value('#e6d97a')
         ), use_container_width=True)
 
     with col_2_2:
@@ -109,11 +96,6 @@ def country_charts():
             alt.Y(artists_per_mil_col),
             color=alt.value('mediumslateblue')
         ), use_container_width=True)
-
-    #st.dataframe(df_domestic.merge(right=df_population, on='Country'))
-    # table_height = (len(df_domestic)+1)*35 + 3
-    # st.dataframe(df_domestic[display_cols].style.format(display_formats), height=table_height, use_container_width=True)
-    # st.dataframe(df_domestic[display_cols].style.format(display_formats), use_container_width=True)
 
     ### Top artists by country
 
@@ -130,8 +112,10 @@ def sale_country_charts():
 
     if (st.session_state.scaled == 'Actual'):
         col_appendix = ""
+        sales_cols = 'Sales' 
     else:
         col_appendix = " Scaled"
+        sales_cols = 'Scaled' 
 
     df_sale_country = gen_sale_country_data(df_filtered) 
 
@@ -146,13 +130,31 @@ def sale_country_charts():
     with col_1_2:
         st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["% Domestic" + col_appendix, "% Intl" + col_appendix]])
 
-    df_sale_country = df_sale_country.drop(['Total' + col_appendix, 'Domestic' + col_appendix, 'Intl' + col_appendix, '% Domestic' + col_appendix, '% Intl' + col_appendix], axis=1)
-    df_sale_country = df_sale_country/df_sale_country.sum(axis=0)
+    ### Heatmap of slaes by origin/sale country
 
-    fig = px.imshow(df_sale_country.transpose(),
+    df_sale_country_heatmap = df_sale_country.drop(['Total' + col_appendix, 'Domestic' + col_appendix, 'Intl' + col_appendix, '% Domestic' + col_appendix, '% Intl' + col_appendix], axis=1)
+    df_sale_country_heatmap = df_sale_country_heatmap/df_sale_country_heatmap.sum(axis=0)
+
+    fig = px.imshow(df_sale_country_heatmap.transpose(),
                     labels=dict(x="Sale Country", y="Origin Country", color="Proporion Sales" + col_appendix),
-                    aspect='auto')
+                    aspect='auto',
+                    color_continuous_scale='Teal')
     st.plotly_chart(fig, use_container_width=True)
+
+    ### Top 5 artists by SALE country
+    
+    df_sale_top = df_filtered.copy()
+    df_sale_top = df_sale_top.filter(regex=sales_cols + '\|', axis=1)
+    df_sale_top.columns = df_sale_top.columns.str.replace(sales_cols + '\|', '', regex=True)
+    df_sale_top = df_sale_top.transpose()
+    df_sale_top['Top5'] = [";".join(df_sale_top.iloc[i][df_sale_top.iloc[i] != 0].nlargest(5).index) for i in range(len(df_sale_top))]
+    df_sale_top = df_sale_top[df_sale_top['Top5'] != '']
+    df_sale_top[['Artist #1', 'Artist #2', 'Artist #3', 'Artist #4', 'Artist #5']] = df_sale_top['Top5'].str.split(';',expand=True)
+    df_sale_top = df_sale_top[['Artist #1', 'Artist #2', 'Artist #3', 'Artist #4', 'Artist #5']]
+    df_sale_top = df_sale_top.fillna(' ')
+
+    table_height = (len(df_sale_top)+1)*35 + 3
+    st.dataframe(df_sale_top, height=table_height, use_container_width=True)
         
 def artist_charts():
     st.write("### Album sales by artist")
@@ -171,14 +173,16 @@ def artist_charts():
         binSpacing=0
     ).encode(
         alt.X('% Domestic' + col_appendix + ':Q', bin=alt.Bin(maxbins=5)),
-        alt.Y('count()')
+        alt.Y('count()'),
+        color=alt.value('lightseagreen')
     )
 
     scatter = px.scatter(df_filtered.reset_index(), 
                      x="Intl" + col_appendix, y="Domestic" + col_appendix, 
                      hover_name="Artist", 
                      log_x=True, log_y=True,
-                     range_x=[5e3, 5e8], range_y=[5e3, 5e8])
+                     range_x=[5e3, 5e8], range_y=[5e3, 5e8],
+                     color_discrete_sequence=['lightcoral'])
     scatter.update_layout(shapes = [{'type': 'line', 'yref': 'paper', 'xref': 'paper', 'y0': 0, 'y1': 1, 'x0': 0, 'x1': 1}])
 
     col_1_1, col_1_2 = st.columns([1,2])
@@ -200,7 +204,7 @@ def artist_charts():
         st.dataframe(df_filtered[display_cols].filter(items=[st.session_state.artist1], axis=0), use_container_width=True)
 
     with col_2_2:
-        st.selectbox('Artist #2', sorted(df_filtered.index), key='artist2')
+        st.selectbox('Artist #2', sorted(df_filtered.index), index=1, key='artist2')
         st.dataframe(df_filtered[display_cols].filter(items=[st.session_state.artist2], axis=0), use_container_width=True)
 
     col_3_1, col_3_2 = st.columns(2)
@@ -350,6 +354,7 @@ if __name__ == '__main__':
     with tab_artist:   
         artist_charts()
 
-# TODO: merge country pages?
+# TODO: move the full artist list and have a second chart with total sales?
+# TODO: set sensible defaults for the artist comparison and have them remember
 # TODO: fix trapt/ozzy country, replace dashes with spaces instead of nothing, add in population by country
 # TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
