@@ -237,44 +237,89 @@ def artist_charts():
 
         st.altair_chart(artist_comp_chart_full, use_container_width=True)
 
-    ### Full artist list chart
+def full_artist_charts():
 
-    df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[False, False])
-    #df_sorted_desc = df_filtered.reset_index().sort_values("Domestic" + col_appendix, ascending=False)#[:25]
-    df_sorted_desc['% Domestic OG' + col_appendix] = df_sorted_desc['% Domestic' + col_appendix]
-    df_sorted_desc['% Domestic' + col_appendix] = -1*df_sorted_desc['% Domestic' + col_appendix]
+    st.write("### Domestic/International Sales By Artist")
+
+    if (st.session_state.scaled == 'Actual'):
+        col_appendix = ""
+        #sales_cols = 'Sales' 
+    else:
+        col_appendix = " Scaled"
+        #sales_cols = 'Scaled' 
+
+    col_1_1, col_1_2 = st.columns(2)
+
+    with col_1_1:
+        radio_sort_col = st.radio('Sort by', ['Total Sales', 'Domestic Sales', 'International Sales', '% Domestic'], key='sort_col', horizontal=True)
+    
+    with col_1_2:
+        radio_sort_dir = st.radio('Sort direction', ['Descending', 'Ascending'], key='sort_dir', horizontal=True)
+
+    # Get the sorted list
+    sort_by = st.session_state.sort_col
+    is_ascending = st.session_state.sort_dir == 'Ascending'
+
+    if sort_by == 'Total Sales':
+        df_sorted_desc = df_filtered.reset_index().sort_values(["Total" + col_appendix, "% Domestic" + col_appendix], ascending=[is_ascending, is_ascending])
+    elif sort_by == 'Domestic Sales':
+        df_sorted_desc = df_filtered.reset_index().sort_values("Domestic" + col_appendix, ascending=is_ascending)
+    elif sort_by == 'International Sales':
+        df_sorted_desc = df_filtered.reset_index().sort_values("Intl" + col_appendix, ascending=is_ascending)
+    else:
+        df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[is_ascending, is_ascending])
+    
     sorted_artists_desc = list(df_sorted_desc['Artist'])
 
-    # chart_artists_desc_1 = alt.Chart(df_sorted_desc).mark_bar(color='#0068C9').encode(
-    #    alt.Y('Artist', sort=sorted_artists_desc),
-    #    alt.X('% Domestic' + col_appendix, axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10))#, axis=alt.Axis(formatType='percentFormat')) 
-    # )#.interactive()
+    col_2_1, col_2_2 = st.columns(2)
 
-    # chart_artists_desc_2 = alt.Chart(df_sorted_desc).mark_bar(color='#83C9FF').encode(
-    #    alt.Y('Artist', sort=sorted_artists_desc),
-    #    alt.X('% Intl' + col_appendix)
-    # )
+    with col_2_1:
 
-    # st.altair_chart(chart_artists_desc_1 + chart_artists_desc_2, theme=None, use_container_width=True)
+        ### Domestic/International Sales
 
-    chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
-        fold=['% Domestic' + col_appendix, '% Intl' + col_appendix], 
-        as_=['‎', '% Domestic/Intl']
-    ).encode(
-        y=alt.Y('Artist', sort=sorted_artists_desc),
-        x=alt.X('% Domestic/Intl:Q', axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10)),
-        color='‎:N',
-        tooltip=['Artist', 
-                 alt.Tooltip('Total' + col_appendix, format=","), 
-                 alt.Tooltip('Domestic' + col_appendix, format=","), 
-                 alt.Tooltip('Intl' + col_appendix, format=","), 
-                 alt.Tooltip('% Domestic OG' + col_appendix, format=".0f", title='% Domestic'), 
-                 alt.Tooltip('% Intl' + col_appendix, format=".0f")]
-    ).configure_legend(
-        orient='bottom'
-    )
+        chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
+            fold=['Domestic' + col_appendix, 'Intl' + col_appendix], 
+            as_=['‎', 'Domestic/Intl']
+        ).encode(
+            y=alt.Y('Artist', sort=sorted_artists_desc),
+            x=alt.X('Domestic/Intl:Q'),
+            color='‎:N',
+            tooltip=['Artist', 
+                    alt.Tooltip('Total' + col_appendix, format=","), 
+                    alt.Tooltip('Domestic' + col_appendix, format=","), 
+                    alt.Tooltip('Intl' + col_appendix, format=","), 
+                    alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
+                    alt.Tooltip('% Intl' + col_appendix, format=".0f")]
+        ).configure_legend(
+            orient='bottom'
+        )
 
-    st.altair_chart(chart_artists_desc, use_container_width=True)
+        st.altair_chart(chart_artists_desc, use_container_width=True)
+
+    with col_2_2: 
+
+        ### % Domestic/International
+
+        chart_artists_desc_pct = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
+            fold=['% Domestic' + col_appendix, '% Intl' + col_appendix], 
+            as_=['‎', '% Domestic/Intl']
+        ).encode(
+            y=alt.Y('Artist', sort=sorted_artists_desc),
+            # x=alt.X('% Domestic/Intl:Q', axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10)),
+            x=alt.X('% Domestic/Intl:Q', axis=alt.Axis(tickCount=10)),
+            color='‎:N',
+            tooltip=['Artist', 
+                    alt.Tooltip('Total' + col_appendix, format=","), 
+                    alt.Tooltip('Domestic' + col_appendix, format=","), 
+                    alt.Tooltip('Intl' + col_appendix, format=","), 
+                    # alt.Tooltip('% Domestic OG' + col_appendix, format=".0f", title='% Domestic'), 
+                    alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
+                    alt.Tooltip('% Intl' + col_appendix, format=".0f")]
+        ).configure_legend(
+            orient='bottom'
+        )
+
+        st.altair_chart(chart_artists_desc_pct, use_container_width=True)
 
 #@st.cache_data
 def gen_country_data(df, min_count=5):
@@ -343,7 +388,7 @@ if __name__ == '__main__':
     df_filtered = apply_filters(df_full)
     df_domestic = gen_country_data(df_filtered, min_count=1)
 
-    tab_overview, tab_country_origin, tab_country_sale, tab_artist = st.tabs(["Overview", "Origin Country", "Sale Country","Artists"])
+    tab_overview, tab_country_origin, tab_country_sale, tab_artist, tab_artist_full = st.tabs(["Overview", "Origin Country", "Sale Country", "Artist Comparison", "Full Artist Charts"])
     
     with tab_country_origin:
         country_charts()
@@ -353,6 +398,9 @@ if __name__ == '__main__':
 
     with tab_artist:   
         artist_charts()
+
+    with tab_artist_full:
+        full_artist_charts()
 
 # TODO: move the full artist list and have a second chart with total sales?
 # TODO: set sensible defaults for the artist comparison and have them remember
