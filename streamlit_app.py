@@ -16,13 +16,14 @@ st.set_page_config(
 @st.cache_data
 def load_data(loc, index_col):
     df = pd.read_csv(loc, index_col=index_col)
-    for c in ['Domestic', 'Intl', 'Domestic Scaled', 'Intl Scaled', 'Total']:
+    df.columns = df.columns.str.replace('Intl', 'International')
+    for c in ['Domestic', 'International', 'Domestic Scaled', 'International Scaled', 'Total']:
         df[c] = round(df[c], 0)
 
-    df['% Domestic'] = round(df['% Domestic']*100, 1)
-    df['% Domestic Scaled'] = round(df['% Domestic Scaled']*100, 1)
-    df['% Intl'] = 100-df['% Domestic']
-    df['% Intl Scaled'] = 100-df['% Domestic Scaled']
+    df['% Domestic'] = round(df['% Domestic'], 3)
+    df['% Domestic Scaled'] = round(df['% Domestic Scaled'], 3)
+    df['% International'] = 1-df['% Domestic']
+    df['% International Scaled'] = 1-df['% Domestic Scaled']
     return df
 
 @st.cache_data
@@ -65,10 +66,42 @@ def country_charts():
     ### Domestic/International sales by country
 
     with col_1_1:
-        st.bar_chart(df_domestic[["Domestic" + col_appendix, "Intl" + col_appendix]])
+        st.altair_chart(alt.Chart(df_domestic.reset_index()).mark_bar().transform_fold(
+            fold=['Domestic' + col_appendix, 'International' + col_appendix], 
+            as_=['‎', 'Sales']
+        ).encode(
+            y=alt.Y('Sales:Q'),
+            x=alt.X('Country:N', title=''),
+            color='‎:N',
+            tooltip=['Country:N', 
+                    alt.Tooltip('Total' + col_appendix, format=","), 
+                    alt.Tooltip('Domestic' + col_appendix, format=","), 
+                    alt.Tooltip('International' + col_appendix, format=",")], 
+                    # alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
+                    # alt.Tooltip('% International' + col_appendix, format=".0f")]
+        ).configure_legend(
+            orient='bottom'
+        ), use_container_width=True)
+
+        #st.bar_chart(df_domestic[["Domestic" + col_appendix, "International" + col_appendix]])
 
     with col_1_2:
-        st.bar_chart(df_domestic[["% Domestic" + col_appendix, "% Intl" + col_appendix]])
+        st.altair_chart(alt.Chart(df_domestic.reset_index()).mark_bar().transform_fold(
+            fold=['% Domestic' + col_appendix, '% International' + col_appendix], 
+            as_=['‎', 'Percent']
+        ).encode(
+            y=alt.Y('Percent:Q'),
+            x=alt.X('Country:N', title=''),
+            color='‎:N',
+            tooltip=['Country:N', 
+                    alt.Tooltip('Total' + col_appendix, format=","), 
+                    alt.Tooltip('% Domestic' + col_appendix, format=".1%"), 
+                    alt.Tooltip('% International' + col_appendix, format=".1%")]
+        ).configure_legend(
+            orient='bottom'
+        ), use_container_width=True)
+
+        #st.bar_chart(df_domestic[["% Domestic" + col_appendix, "% International" + col_appendix]])
     
     ### Average sales per artist, average artists per population
 
@@ -124,21 +157,60 @@ def sale_country_charts():
     ### Domestic/International sales by sale country
 
     min_sales = 10e6
+    df_sale_country_filt = df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["Total" + col_appendix, "Domestic" + col_appendix, 
+                                                                                                      "International" + col_appendix, "% Domestic" + col_appendix, 
+                                                                                                      "% International" + col_appendix]].reset_index()
+    df_sale_country_filt = df_sale_country_filt.rename({'index': 'Country'}, axis=1)
+    
+
     with col_1_1:
-        st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["Domestic" + col_appendix, "Intl" + col_appendix]])
+        st.altair_chart(alt.Chart(df_sale_country_filt).mark_bar().transform_fold(
+            fold=['Domestic' + col_appendix, 'International' + col_appendix], 
+            as_=['‎', 'Sales']
+        ).encode(
+            y=alt.Y('Sales:Q'),
+            x=alt.X('Country:N', title=''),
+            color='‎:N',
+            tooltip=['Country:N', 
+                    alt.Tooltip('Total' + col_appendix +':Q', format=","), 
+                    alt.Tooltip('Domestic' + col_appendix, format=","), 
+                    alt.Tooltip('International' + col_appendix, format=",")], 
+                    # alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
+                    # alt.Tooltip('% International' + col_appendix, format=".0f")]
+        ).configure_legend(
+            orient='bottom'
+        ), use_container_width=True)
+
+        #st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["Domestic" + col_appendix, "International" + col_appendix]])
 
     with col_1_2:
-        st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["% Domestic" + col_appendix, "% Intl" + col_appendix]])
+        st.altair_chart(alt.Chart(df_sale_country_filt).mark_bar().transform_fold(
+            fold=['% Domestic' + col_appendix, '% International' + col_appendix], 
+            as_=['‎', 'Percent']
+        ).encode(
+            y=alt.Y('Percent:Q'),
+            x=alt.X('Country:N', title=''),
+            color='‎:N',
+            tooltip=['Country:N', 
+                    alt.Tooltip('Total' + col_appendix +':Q', format=","),  
+                    alt.Tooltip('% Domestic' + col_appendix, format=".1%"), 
+                    alt.Tooltip('% International' + col_appendix, format=".1%")]
+        ).configure_legend(
+            orient='bottom'
+        ), use_container_width=True)
+
+        #st.bar_chart(df_sale_country.loc[df_sale_country['Total' + col_appendix] >= min_sales, ["% Domestic" + col_appendix, "% International" + col_appendix]])
 
     ### Heatmap of slaes by origin/sale country
 
-    df_sale_country_heatmap = df_sale_country.drop(['Total' + col_appendix, 'Domestic' + col_appendix, 'Intl' + col_appendix, '% Domestic' + col_appendix, '% Intl' + col_appendix], axis=1)
-    df_sale_country_heatmap = df_sale_country_heatmap/df_sale_country_heatmap.sum(axis=0)
+    df_sale_country_heatmap = df_sale_country.drop(['Total' + col_appendix, 'Domestic' + col_appendix, 'International' + col_appendix, '% Domestic' + col_appendix, '% International' + col_appendix], axis=1)
+    df_sale_country_heatmap = round(df_sale_country_heatmap/df_sale_country_heatmap.sum(axis=0),3)*100
 
     fig = px.imshow(df_sale_country_heatmap.transpose(),
-                    labels=dict(x="Sale Country", y="Origin Country", color="Proporion Sales" + col_appendix),
+                    labels=dict(x="Sale Country", y="Origin Country", color="Percentage Sales" + col_appendix),
                     aspect='auto',
                     color_continuous_scale='Teal')
+
     st.plotly_chart(fig, use_container_width=True)
 
     ### Top 5 artists by SALE country
@@ -172,13 +244,13 @@ def artist_charts():
         opacity=1,
         binSpacing=0
     ).encode(
-        alt.X('% Domestic' + col_appendix + ':Q', bin=alt.Bin(maxbins=5)),
+        alt.X('% Domestic' + col_appendix + ':Q', bin=alt.Bin(maxbins=5), axis=alt.Axis(format='.0%')),
         alt.Y('count()'),
         color=alt.value('lightseagreen')
     )
 
     scatter = px.scatter(df_filtered.reset_index(), 
-                     x="Intl" + col_appendix, y="Domestic" + col_appendix, 
+                     x="International" + col_appendix, y="Domestic" + col_appendix, 
                      hover_name="Artist", 
                      log_x=True, log_y=True,
                      range_x=[5e3, 5e8], range_y=[5e3, 5e8],
@@ -195,47 +267,89 @@ def artist_charts():
 
     ### Artist comparison
 
-    display_cols = ['Country', 'Genre', 'Total' + col_appendix, 'Domestic' + col_appendix, 'Intl' + col_appendix, "% Domestic" + col_appendix, "% Intl" + col_appendix]
+    display_cols = ['Country', 'Genre', 'Total' + col_appendix, 'Domestic' + col_appendix, 'International' + col_appendix, "% Domestic" + col_appendix, "% International" + col_appendix]
 
     col_2_1, col_2_2 = st.columns(2)
 
     with col_2_1:
         st.selectbox('Artist #1', sorted(df_filtered.index), key='artist1')
-        st.dataframe(df_filtered[display_cols].filter(items=[st.session_state.artist1], axis=0), use_container_width=True)
+        st.write(df_filtered[display_cols].filter(items=[st.session_state.artist1], axis=0).style.format(
+            {'Total' + col_appendix: "{:,.0f}", 'Domestic' + col_appendix: "{:,.0f}", 'International' + col_appendix: "{:,.0f}",
+             '% Domestic' + col_appendix: "{:.1%}", '% International' + col_appendix: "{:.1%}"}))
 
     with col_2_2:
         st.selectbox('Artist #2', sorted(df_filtered.index), index=1, key='artist2')
-        st.dataframe(df_filtered[display_cols].filter(items=[st.session_state.artist2], axis=0), use_container_width=True)
+        st.write(df_filtered[display_cols].filter(items=[st.session_state.artist2], axis=0).style.format(
+            {'Total' + col_appendix: "{:,.0f}", 'Domestic' + col_appendix: "{:,.0f}", 'International' + col_appendix: "{:,.0f}",
+             '% Domestic' + col_appendix: "{:.1%}", '% International' + col_appendix: "{:.1%}"}))
+
+    df_artist_comp = df_filtered.copy().filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
 
     col_3_1, col_3_2 = st.columns(2)
 
     with col_3_1:
-        df_artist_comp = df_filtered.filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
-        df_artist_long = pd.melt(df_artist_comp, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
-        df_artist_long = pd.melt(df_artist_comp, value_vars=['Domestic' + col_appendix, 'Intl' + col_appendix], var_name='‎', value_name='Sales' + col_appendix, ignore_index=False)
-
-        artist_comp_chart = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
-            alt.X('Artist'),
-            alt.Y('Sales' + col_appendix),
-            color='‎'
-        ).interactive()
+        # df_artist_comp = df_filtered.copy().filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
+        # df_artist_long = pd.melt(df_artist_comp, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
+        # df_artist_long = pd.melt(df_artist_comp, value_vars=['Domestic' + col_appendix, 'International' + col_appendix], 
+        #                          var_name='‎', value_name='Sales' + col_appendix, ignore_index=False)
         
-        st.altair_chart(artist_comp_chart, use_container_width=True)
+        #st.write(df_artist_comp)
+
+        # artist_comp_chart = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
+        #     alt.X('Artist', sort=[st.session_state.artist1, st.session_state.artist2]),
+        #     alt.Y('Sales' + col_appendix),
+        #     color='‎',
+        #     tooltip=['Artist:N', alt.Tooltip('Total:Q' + col_appendix, format=","),
+        #              alt.Tooltip('Domestic' + col_appendix + ':Q', format=","),
+        #              alt.Tooltip('International' + col_appendix + ':Q', format=",")]
+        # ).interactive()
+
+        st.altair_chart(alt.Chart(df_artist_comp.reset_index()).mark_bar().transform_fold(
+            fold=['Domestic' + col_appendix, 'International' + col_appendix], 
+            as_=['‎', 'Sales']
+        ).encode(
+            y=alt.Y('Sales:Q'),
+            x=alt.X('Artist:N', title=''),
+            color='‎:N',
+            tooltip=['Artist:N', 
+                    alt.Tooltip('Total' + col_appendix  +':Q', format=","),  
+                    alt.Tooltip('Domestic' + col_appendix, format=","), 
+                    alt.Tooltip('International' + col_appendix, format=",")]
+        ).configure_legend(
+            orient='bottom'
+        ), use_container_width=True)
+        
+        #st.altair_chart(artist_comp_chart, use_container_width=True)
     
     with col_3_2:
-        df_artist_comp = df_filtered.filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
+        # df_artist_comp = df_filtered.filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
         df_artist_comp = df_artist_comp.filter(regex=sales_cols + '\|', axis=1)
         df_artist_comp.columns = df_artist_comp.columns.str.replace(sales_cols + '\|', '', regex=True)
         df_artist_long = pd.melt(df_artist_comp, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
         df_artist_long = df_artist_long.loc[df_artist_long['Sales' + col_appendix] > 0]
         
         artist_comp_chart_full = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
-            alt.X('Artist'),
-            alt.Y('Sales' + col_appendix),
+            alt.X('Artist', sort=[st.session_state.artist1, st.session_state.artist2]),
+            alt.Y('Sales' + col_appendix, axis=alt.Axis(format=',')),
             color='Country'
         ).interactive()
 
         st.altair_chart(artist_comp_chart_full, use_container_width=True)
+
+        # st.altair_chart(alt.Chart(df_artist_comp.reset_index()).mark_bar().transform_fold(
+        #     fold=['% Domestic' + col_appendix, '% International' + col_appendix], 
+        #     as_=['‎', 'Percent']
+        # ).encode(
+        #     y=alt.Y('Percent:Q'),
+        #     x=alt.X('Artist:N', title=''),
+        #     color='‎:N',
+        #     tooltip=['Artist:N', 
+        #             alt.Tooltip('Total:Q' + col_appendix, format=","),  
+        #             alt.Tooltip('% Domestic' + col_appendix, format=".1%"), 
+        #             alt.Tooltip('% International' + col_appendix, format=".1%")]
+        # ).configure_legend(
+        #     orient='bottom'
+        # ), use_container_width=True)
 
 def full_artist_charts():
 
@@ -251,10 +365,10 @@ def full_artist_charts():
     col_1_1, col_1_2 = st.columns(2)
 
     with col_1_1:
-        radio_sort_col = st.radio('Sort by', ['Total Sales', 'Domestic Sales', 'International Sales', '% Domestic'], key='sort_col', horizontal=True)
+        st.radio('Sort by', ['Total Sales', 'Domestic Sales', 'International Sales', '% Domestic'], key='sort_col', horizontal=True)
     
     with col_1_2:
-        radio_sort_dir = st.radio('Sort direction', ['Descending', 'Ascending'], key='sort_dir', horizontal=True)
+        st.radio('Sort direction', ['Descending', 'Ascending'], key='sort_dir', horizontal=True)
 
     # Get the sorted list
     sort_by = st.session_state.sort_col
@@ -265,7 +379,7 @@ def full_artist_charts():
     elif sort_by == 'Domestic Sales':
         df_sorted_desc = df_filtered.reset_index().sort_values("Domestic" + col_appendix, ascending=is_ascending)
     elif sort_by == 'International Sales':
-        df_sorted_desc = df_filtered.reset_index().sort_values("Intl" + col_appendix, ascending=is_ascending)
+        df_sorted_desc = df_filtered.reset_index().sort_values("International" + col_appendix, ascending=is_ascending)
     else:
         df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[is_ascending, is_ascending])
     
@@ -278,18 +392,18 @@ def full_artist_charts():
         ### Domestic/International Sales
 
         chart_artists_desc = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
-            fold=['Domestic' + col_appendix, 'Intl' + col_appendix], 
-            as_=['‎', 'Domestic/Intl']
+            fold=['Domestic' + col_appendix, 'International' + col_appendix], 
+            as_=['‎', 'Domestic/International']
         ).encode(
             y=alt.Y('Artist', sort=sorted_artists_desc),
-            x=alt.X('Domestic/Intl:Q'),
+            x=alt.X('Domestic/International:Q'),
             color='‎:N',
             tooltip=['Artist', 
                     alt.Tooltip('Total' + col_appendix, format=","), 
                     alt.Tooltip('Domestic' + col_appendix, format=","), 
-                    alt.Tooltip('Intl' + col_appendix, format=","), 
-                    alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
-                    alt.Tooltip('% Intl' + col_appendix, format=".0f")]
+                    alt.Tooltip('International' + col_appendix, format=","), 
+                    alt.Tooltip('% Domestic' + col_appendix, format=".1%"), 
+                    alt.Tooltip('% International' + col_appendix, format=".1%")]
         ).configure_legend(
             orient='bottom'
         )
@@ -301,20 +415,20 @@ def full_artist_charts():
         ### % Domestic/International
 
         chart_artists_desc_pct = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
-            fold=['% Domestic' + col_appendix, '% Intl' + col_appendix], 
-            as_=['‎', '% Domestic/Intl']
+            fold=['% Domestic' + col_appendix, '% International' + col_appendix], 
+            as_=['‎', '% Domestic/International']
         ).encode(
             y=alt.Y('Artist', sort=sorted_artists_desc),
-            # x=alt.X('% Domestic/Intl:Q', axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10)),
-            x=alt.X('% Domestic/Intl:Q', axis=alt.Axis(tickCount=10)),
+            # x=alt.X('% Domestic/International:Q', axis=alt.Axis(labelExpr='abs(datum.value)', tickCount=10)),
+            x=alt.X('% Domestic/International:Q', axis=alt.Axis(tickCount=10)),
             color='‎:N',
             tooltip=['Artist', 
                     alt.Tooltip('Total' + col_appendix, format=","), 
                     alt.Tooltip('Domestic' + col_appendix, format=","), 
-                    alt.Tooltip('Intl' + col_appendix, format=","), 
+                    alt.Tooltip('International' + col_appendix, format=","), 
                     # alt.Tooltip('% Domestic OG' + col_appendix, format=".0f", title='% Domestic'), 
-                    alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
-                    alt.Tooltip('% Intl' + col_appendix, format=".0f")]
+                    alt.Tooltip('% Domestic' + col_appendix, format=".1%"), 
+                    alt.Tooltip('% International' + col_appendix, format=".1%")]
         ).configure_legend(
             orient='bottom'
         )
@@ -324,11 +438,11 @@ def full_artist_charts():
 #@st.cache_data
 def gen_country_data(df, min_count=5):
     df_country = df.groupby('Country')
-    df_domestic = df_country[['Country', "Domestic", "Domestic Scaled", "Intl", "Intl Scaled", "Total", "Total Scaled"]].sum()#.reset_index()
-    df_domestic['% Domestic'] = round(df_domestic['Domestic'] / df_domestic['Total'] * 100, 1)
-    df_domestic['% Domestic Scaled'] = round(df_domestic['Domestic Scaled'] / df_domestic['Total Scaled'] * 100, 1)
-    df_domestic['% Intl'] = round(df_domestic['Intl'] / df_domestic['Total'] * 100, 1)
-    df_domestic['% Intl Scaled'] = round(df_domestic['Intl Scaled'] / df_domestic['Total Scaled'] * 100, 1)
+    df_domestic = df_country[['Country', "Domestic", "Domestic Scaled", "International", "International Scaled", "Total", "Total Scaled"]].sum()#.reset_index()
+    df_domestic['% Domestic'] = round(df_domestic['Domestic'] / df_domestic['Total'], 3)
+    df_domestic['% Domestic Scaled'] = round(df_domestic['Domestic Scaled'] / df_domestic['Total Scaled'], 3)
+    df_domestic['% International'] = round(df_domestic['International'] / df_domestic['Total'], 3)
+    df_domestic['% International Scaled'] = round(df_domestic['International Scaled'] / df_domestic['Total Scaled'], 3)
     df_domestic['Artist Count'] = df_country['Country'].count()
     df_domestic = df_domestic[df_domestic['Artist Count'] >= min_count]
     return df_domestic
@@ -355,9 +469,9 @@ def gen_sale_country_data(df):
     df_sale_country = df_sale_country.transpose()
     df_sale_country['Total' + col_appendix] = df_sale_country.sum(axis=1)
     df_sale_country['Domestic' + col_appendix] = [domestic_sales(df_sale_country, c) for c in df_sale_country.index]
-    df_sale_country['Intl' + col_appendix] = df_sale_country['Total' + col_appendix] - df_sale_country['Domestic' + col_appendix]
-    df_sale_country['% Domestic' + col_appendix] = round(df_sale_country['Domestic' + col_appendix] / df_sale_country['Total' + col_appendix] * 100, 1)
-    df_sale_country['% Intl' + col_appendix] = round(df_sale_country['Intl' + col_appendix] / df_sale_country['Total' + col_appendix] * 100, 1)
+    df_sale_country['International' + col_appendix] = df_sale_country['Total' + col_appendix] - df_sale_country['Domestic' + col_appendix]
+    df_sale_country['% Domestic' + col_appendix] = round(df_sale_country['Domestic' + col_appendix] / df_sale_country['Total' + col_appendix], 3)
+    df_sale_country['% International' + col_appendix] = round(df_sale_country['International' + col_appendix] / df_sale_country['Total' + col_appendix], 3)
     
     return df_sale_country
 
@@ -402,7 +516,6 @@ if __name__ == '__main__':
     with tab_artist_full:
         full_artist_charts()
 
-# TODO: move the full artist list and have a second chart with total sales?
-# TODO: set sensible defaults for the artist comparison and have them remember
 # TODO: fix trapt/ozzy country, replace dashes with spaces instead of nothing, add in population by country
 # TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
+# TODO: add error handling for if filtered has no data
