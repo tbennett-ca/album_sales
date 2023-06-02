@@ -33,7 +33,7 @@ def load_pop_data(loc):
 
 def load_sidebar():
     with st.sidebar:
-        _ = st.radio(
+        st.radio(
                 "Display actual sales/percentages or scale by market size?",
                 ('Actual', 'Scaled'), horizontal=True, key='scaled'),
         st.multiselect('Select genres (all if blank)', options=genres, default=['Rock','Metal'], key='genre_filter')
@@ -49,6 +49,12 @@ def load_sidebar():
                 st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, on_change=adjust_sales_filter, key='max_sales')
             else:
                 st.number_input('Enter max sales (millions)', min_value=1, max_value = 500, value=500, on_change=adjust_sales_filter, key='max_sales')
+        st.button('Reset Filters', key='reset', on_click=reset_filters)
+
+def reset_filters():
+    st.session_state.genre_filter = ['Rock','Metal']
+    st.session_state.min_sales = 0
+    st.session_state.max_sales = 500
 
 def adjust_sales_filter():
     st.session_state.max_sales = max(st.session_state.max_sales, st.session_state.min_sales+1)
@@ -500,22 +506,26 @@ if __name__ == '__main__':
 
     load_sidebar()
     df_filtered = apply_filters(df_full)
-    df_domestic = gen_country_data(df_filtered, min_count=1)
 
-    tab_overview, tab_country_origin, tab_country_sale, tab_artist, tab_artist_full = st.tabs(["Overview", "Origin Country", "Sale Country", "Artist Comparison", "Full Artist Charts"])
-    
-    with tab_country_origin:
-        country_charts()
+    if len(df_filtered) == 0:
+        st.write('No artists meet the filter criteria.')
+    else:
+        df_domestic = gen_country_data(df_filtered, min_count=1)
 
-    with tab_country_sale:   
-        sale_country_charts()
+        tab_overview, tab_country_origin, tab_country_sale, tab_artist, tab_artist_full = st.tabs(["Overview", "Origin Country", "Sale Country", "Artist Comparison", "Full Artist Charts"])
+        
+        with tab_country_origin:
+            country_charts()
 
-    with tab_artist:   
-        artist_charts()
+        with tab_country_sale:   
+            sale_country_charts()
 
-    with tab_artist_full:
-        full_artist_charts()
+        with tab_artist:   
+            artist_charts()
+
+        with tab_artist_full:
+            full_artist_charts()
 
 # TODO: fix trapt/ozzy country, replace dashes with spaces instead of nothing, add in population by country
 # TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
-# TODO: add error handling for if filtered has no data
+# TODO: use OG artist name
