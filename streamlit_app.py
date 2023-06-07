@@ -20,6 +20,7 @@ def load_data(loc, index_col):
     for c in ['Domestic', 'International', 'Domestic Scaled', 'International Scaled', 'Total']:
         df[c] = round(df[c], 0)
 
+    df['Genre'] = df['Genre'].str.replace(';', ', ')
     df['% Domestic'] = round(df['% Domestic'], 3)
     df['% Domestic Scaled'] = round(df['% Domestic Scaled'], 3)
     df['% International'] = 1-df['% Domestic']
@@ -36,7 +37,7 @@ def load_sidebar():
         st.radio(
                 "Display actual sales/percentages or scale by market size?",
                 ('Actual', 'Scaled'), horizontal=True, key='scaled'),
-        st.multiselect('Select genres (all if blank)', options=genres, default=['Rock','Metal'], key='genre_filter')
+        st.multiselect('Select genres (all if blank)', options=genres, default=[], key='genre_filter')
         #st.multiselect('Select artist country (all if blank)', options=countries, default=None, key='country_filter')
         sales_col_1, sales_col_2 = st.columns(2)
         with sales_col_1:
@@ -52,7 +53,7 @@ def load_sidebar():
         st.button('Reset Filters', key='reset', on_click=reset_filters)
 
 def reset_filters():
-    st.session_state.genre_filter = ['Rock','Metal']
+    st.session_state.genre_filter = []#['Rock','Metal']
     st.session_state.min_sales = 0
     st.session_state.max_sales = 500
 
@@ -486,7 +487,9 @@ def apply_filters(df_full):
 
     # Genre
     if len(st.session_state.genre_filter) > 0:
-        df = df.loc[df['Genre'].isin(st.session_state.genre_filter)]
+        #df = df.loc[df['Genre'].isin(st.session_state.genre_filter)]
+        genres = [g.lower() for g in st.session_state.genre_filter]
+        df = df[pd.DataFrame(list(df['Genre'].str.split(', '))).isin(genres).any(1).values]
 
     # # Country
     # if len(st.session_state.country_filter) > 0:
@@ -496,13 +499,25 @@ def apply_filters(df_full):
     df = df.loc[(df['Total'] >= st.session_state.min_sales*1000000) & (df['Total'] <= st.session_state.max_sales*1000000)]
     
     return df
+
+@st.cache_data
+def get_genres(df):
+    genres = []
+
+    for gs in df['Genre']:
+        gs_split = gs.split(', ')
+        for g in gs_split:
+            if not g.title() in genres:
+                genres.append(g.title())
+    return sorted(genres)
     
 if __name__ == '__main__':
     os.chdir("c:/Users/tb450/Desktop/Work etc/album_sales/github/album_sales/")
-    df_full = load_data('album_sales_wide_5.csv', index_col="Artist")
-    genres = sorted(list(set(df_full['Genre'])))
+    df_full = load_data('data/album_sales_wide_5.csv', index_col="Artist")
+    #genres = sorted(list(set(df_full['Genre'])))
+    genres = get_genres(df_full)
     countries = sorted(list(set(df_full['Country'])))
-    df_population = load_pop_data('population_by_country_2020.csv')
+    df_population = load_pop_data('data/population_by_country_2020.csv')
 
     load_sidebar()
     df_filtered = apply_filters(df_full)
@@ -526,6 +541,11 @@ if __name__ == '__main__':
         with tab_artist_full:
             full_artist_charts()
 
-# TODO: fix trapt/ozzy country, replace dashes with spaces instead of nothing, add in population by country
-# TODO: make artist comp charts always display in the right order, fix column widths, annotations etc.
+# TODO: fix trapt/ozzy country, replace dashes with spaces instead of nothing
 # TODO: use OG artist name
+# TODO: fix max filter switching to 1 - is it not checking if it's higher?
+# TODO: add full data?
+# TODO: remove the actual/scaled choice from the label
+# TODO: overview page
+# TODO: change icon/title
+# TODO: more caching/optimization?
