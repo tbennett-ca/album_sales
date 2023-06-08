@@ -400,6 +400,15 @@ if __name__ == '__main__':
 
         tab_overview, tab_country_origin, tab_country_sale, tab_artist, tab_artist_full = st.tabs(["Overview", "Origin Country", "Sale Country", "Artist Comparison", "Full Artist Charts"])
         
+        with tab_overview:
+            st.write('# Album Sales Analysis')
+            st.write('## Motivation')
+            st.write('## Source Data')
+            st.write('## Notable Findings')
+            st.write('### International Artists')
+            st.write('### Domestic Artists')
+            st.write('### Best Countries for Each Genre')
+
         with tab_country_origin:
             st.write("### Album sales by origin country")
 
