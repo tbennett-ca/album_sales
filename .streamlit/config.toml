@@ -1,3 +1,5 @@
+[global]
+disableWidgetStateDuplicationWarning = true
 [theme]
 primaryColor="#F63366"
 backgroundColor="#E9EEF0"
