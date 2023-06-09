@@ -193,7 +193,7 @@ def artist_charts(df_filtered, col_appendix):
     return histogram, scatter
 
 @st.cache_data
-def get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix):
+def get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix, artist1, artist2):
      
     ch1 = alt.Chart(df_artist_comp.reset_index()).mark_bar().transform_fold(
         fold=['Domestic' + col_appendix, 'International' + col_appendix], 
@@ -211,7 +211,7 @@ def get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix):
     )
 
     ch2 = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
-        alt.X('Artist', sort=[st.session_state.artist1, st.session_state.artist2]),
+        alt.X('Artist', sort=[artist1, artist2]),
         alt.Y('Sales' + col_appendix, axis=alt.Axis(format=',')),
         color='Country'
     ).interactive()
@@ -256,7 +256,6 @@ def get_chart_artists_full(df_sorted_desc, sorted_artists_desc, col_appendix):
         orient='bottom'
     )
     return ch1, ch2
-
 
 @st.cache_data
 def gen_country_data(df, min_count=5):
@@ -329,14 +328,14 @@ def get_sorted_artists(df_filtered, col_appendix, sort_col, sort_dir):
     elif sort_by == 'International Sales':
         df_sorted_desc = df_filtered.reset_index().sort_values("International" + col_appendix, ascending=is_ascending)
     else:
-        df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[is_ascending, is_ascending])
+        df_sorted_desc = df_filtered.reset_index().sort_values(["% Domestic" + col_appendix, "Total" + col_appendix], ascending=[is_ascending, False])
     
     sorted_artists_desc = list(df_sorted_desc['Artist'])
     return df_sorted_desc, sorted_artists_desc
 
 @st.cache_data 
-def get_comp_data(df_filtered, col_appendix):
-    df_artist_comp = df_filtered.copy().filter(items=[st.session_state.artist1, st.session_state.artist2], axis=0)
+def get_comp_data(df_filtered, col_appendix, artist1, artist2):
+    df_artist_comp = df_filtered.copy().filter(items=[artist1, artist2], axis=0)
     df_artist_comp_sales = df_artist_comp.filter(regex=sales_cols + '\|', axis=1)
     df_artist_comp_sales.columns = df_artist_comp_sales.columns.str.replace(sales_cols + '\|', '', regex=True)
     df_artist_long = pd.melt(df_artist_comp_sales, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
@@ -398,15 +397,31 @@ if __name__ == '__main__':
         df_country_top_wide = gen_country_top_wide(df_filtered, col_appendix)
         df_sale_country = gen_sale_country_data(df_filtered, col_appendix, sales_cols)
 
+        st.write('# Album Sales')
+
         tab_overview, tab_country_origin, tab_country_sale, tab_artist, tab_artist_full = st.tabs(["Overview", "Origin Country", "Sale Country", "Artist Comparison", "Full Artist Charts"])
         
         with tab_overview:
-            st.write('# Album Sales Analysis')
-            st.write('## Motivation')
+            st.write('## Overview')
+            st.write(
+                    "Many of the most successful bands and artists are beloved all across the world, having similar levels of popularity both at home and overseas. " + 
+                    "But we're not interested in any of those.\n\n" + 
+                    "The purpose of this app is to objectively find the biggest acts that never made it overseas, or who never cracked their home territory. " +
+                    "For the most part, this can be done by comparing domestic and international sales. The main issue with this is that market sizes vary across the world, e.g. " +
+                    "1,000,000 sales in Canada represents far more relative success than 1,000,000 sales in the United States. To remedy this, there is an option to scale the sales " + 
+                    "as if all markets were the same size.\n\n"
+                    "A secondary goal is to see which countries produce the most/best acts relative to their size."
+                    )
+            # TODO: insert a chart!
             st.write('## Source Data')
+            st.write(
+                    "Sales data was scraped from [bestsellingalbums.org](https://bestsellingalbums.org/), with artist genres generated using the [musicbrainz.org](https://musicbrainz.org/) API.\n\n" + 
+                    "Sales figures are mostly based on certifications, so in most cases sales are understated. More information can be found [here](https://bestsellingalbums.org/about/).\n\n" + 
+                    "Whilst every effort has been made to correct data issues, there will inevitably be some inconsistencies, so proceed with caution."
+                    )
             st.write('## Notable Findings')
-            st.write('### International Artists')
-            st.write('### Domestic Artists')
+            st.write('### Biggest Artists that Failed at Home')
+            st.write('### Biggest Artists that Never Made it Abroad')
             st.write('### Best Countries for Each Genre')
 
         with tab_country_origin:
@@ -497,8 +512,8 @@ if __name__ == '__main__':
                     {'Total' + col_appendix: "{:,.0f}", 'Domestic' + col_appendix: "{:,.0f}", 'International' + col_appendix: "{:,.0f}",
                     '% Domestic' + col_appendix: "{:.1%}", '% International' + col_appendix: "{:.1%}"}))
             
-            df_artist_comp, df_artist_long = get_comp_data(df_filtered, col_appendix)
-            artist_comp_chart, artist_comp_chart_full = get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix)
+            df_artist_comp, df_artist_long = get_comp_data(df_filtered, col_appendix, st.session_state.artist1, st.session_state.artist2)
+            artist_comp_chart, artist_comp_chart_full = get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix, st.session_state.artist1, st.session_state.artist2)
 
             col_3_1, col_3_2 = st.columns(2)
 
@@ -511,6 +526,12 @@ if __name__ == '__main__':
         with tab_artist_full:
             st.write("### Domestic/International Sales By Artist")
 
+            countries = sorted(set(df_filtered['Country']))
+            if 'country_filter' in st.session_state:
+                country_filter = st.multiselect('Country filter (all if blank)', options=countries, default=st.session_state.country_filter, key='country_filter')
+            else :
+                country_filter = st.multiselect('Country filter (all if blank)', options=countries, key='country_filter')
+
             col_1_1, col_1_2 = st.columns(2)
 
             with col_1_1:
@@ -520,8 +541,10 @@ if __name__ == '__main__':
                 st.radio('Sort direction', ['Descending', 'Ascending'], key='sort_dir', horizontal=True)
 
             # Get the sorted list
-            
-            df_sorted_desc, sorted_artists_desc = get_sorted_artists(df_filtered, col_appendix, st.session_state.sort_col, st.session_state.sort_dir)
+            if st.session_state.country_filter == []:
+                df_sorted_desc, sorted_artists_desc = get_sorted_artists(df_filtered, col_appendix, st.session_state.sort_col, st.session_state.sort_dir)
+            else:
+                df_sorted_desc, sorted_artists_desc = get_sorted_artists(df_filtered[df_filtered['Country'].isin(country_filter)], col_appendix, st.session_state.sort_col, st.session_state.sort_dir)
             chart_artists_desc, chart_artists_desc_pct = get_chart_artists_full(df_sorted_desc, sorted_artists_desc, col_appendix)
 
             col_2_1, col_2_2 = st.columns(2)
