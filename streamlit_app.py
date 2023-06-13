@@ -69,7 +69,7 @@ def country_charts(df_domestic, col_appendix):
         fold=['Domestic' + col_appendix, 'International' + col_appendix], 
         as_=['‎', 'Sales']
     ).encode(
-        y=alt.Y('Sales:Q'),
+        y=alt.Y('Sales:Q', axis=alt.Axis(labelExpr='datum.value / 1E9 + "B"')),
         x=alt.X('Country:N', title=''),
         color='‎:N',
         tooltip=['Country:N', 
@@ -79,14 +79,15 @@ def country_charts(df_domestic, col_appendix):
     ).configure_legend(
         orient='bottom'
     ).properties(
-        title='Domestic/International Sales' + col_appendix + ' by Origin Country'
+        title='Domestic/International Sales' + col_appendix + ' by Origin Country',
+        height=500
     )
     
     ch2 = alt.Chart(df_domestic.reset_index()).mark_bar().transform_fold(
         fold=['% Domestic' + col_appendix, '% International' + col_appendix], 
         as_=['‎', 'Percent']
     ).encode(
-        y=alt.Y('Percent:Q'),
+        y=alt.Y('Percent:Q', axis=alt.Axis(format='.0%')),
         x=alt.X('Country:N', title=''),
         color='‎:N',
         tooltip=['Country:N', 
@@ -96,7 +97,8 @@ def country_charts(df_domestic, col_appendix):
     ).configure_legend(
         orient='bottom'
     ).properties(
-        title='% Domestic/International Sales' + col_appendix + ' by Origin Country'
+        title='% Domestic/International Sales' + col_appendix + ' by Origin Country',
+        height=500
     )
     
     ### Average sales per artist, average artists per population
@@ -109,7 +111,8 @@ def country_charts(df_domestic, col_appendix):
         alt.Y(sales_per_col),
         color=alt.value('#e6d97a')
     ).properties(
-        title='Sales' + col_appendix + ' Per Capita by Origin Country'
+        title='Sales' + col_appendix + ' Per Capita by Origin Country',
+        height=500
     )
 
     ch4 = alt.Chart(df_domestic.reset_index()).mark_bar().encode(
@@ -117,7 +120,8 @@ def country_charts(df_domestic, col_appendix):
         alt.Y(artists_per_mil_col),
         color=alt.value('mediumslateblue')
     ).properties(
-        title='Artists Per Million People by Origin Country'
+        title='Artists Per Million People by Origin Country',
+        height=500
     )
 
     return ch1, ch2, ch3, ch4
@@ -137,7 +141,7 @@ def sale_country_charts(df_sale_country, col_appendix):
         fold=['Domestic' + col_appendix, 'International' + col_appendix], 
         as_=['‎', 'Sales']
     ).encode(
-        y=alt.Y('Sales:Q'),
+        y=alt.Y('Sales:Q', axis=alt.Axis(labelExpr='datum.value / 1E9 + "B"')),
         x=alt.X('Country:N', title=''),
         color='‎:N',
         tooltip=['Country:N', 
@@ -149,14 +153,15 @@ def sale_country_charts(df_sale_country, col_appendix):
     ).configure_legend(
         orient='bottom'
     ).properties(
-        title='Domestic/International Sales' + col_appendix + ' by Sale Country'
+        title='Domestic/International Sales' + col_appendix + ' by Sale Country',
+        height=500
     )
 
     ch2 = alt.Chart(df_sale_country_filt).mark_bar().transform_fold(
         fold=['% Domestic' + col_appendix, '% International' + col_appendix], 
         as_=['‎', 'Percent']
     ).encode(
-        y=alt.Y('Percent:Q'),
+        y=alt.Y('Percent:Q', axis=alt.Axis(format='.0%')),
         x=alt.X('Country:N', title=''),
         color='‎:N',
         tooltip=['Country:N', 
@@ -166,7 +171,8 @@ def sale_country_charts(df_sale_country, col_appendix):
     ).configure_legend(
         orient='bottom'
     ).properties(
-        title='% Domestic/International Sales' + col_appendix + ' by Sale Country'
+        title='% Domestic/International Sales' + col_appendix + ' by Sale Country',
+        height=500
     )
 
     return ch1, ch2
@@ -199,35 +205,102 @@ def artist_charts(df_filtered, col_appendix):
     return histogram, scatter
 
 @st.cache_data
-def get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix, artist1, artist2):
+def get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix, artists):
      
     ch1 = alt.Chart(df_artist_comp.reset_index()).mark_bar().transform_fold(
         fold=['Domestic' + col_appendix, 'International' + col_appendix], 
         as_=['‎', 'Sales']
     ).encode(
-        y=alt.Y('Sales:Q'),
+        y=alt.Y('Sales:Q', axis=alt.Axis(labelExpr='datum.value / 1E6 + "M"')),
         x=alt.X('Artist:N', title=''),
         color='‎:N',
         tooltip=['Artist:N',
-                alt.Tooltip('Total' + col_appendix  +':Q', format=","),  
-                alt.Tooltip('Domestic' + col_appendix, format=","), 
-                alt.Tooltip('International' + col_appendix, format=",")]
+                 'Country:N',
+                 alt.Tooltip('Total' + col_appendix  +':Q', format=","),
+                 alt.Tooltip('Domestic' + col_appendix, format=","), 
+                 alt.Tooltip('International' + col_appendix, format=",")]
     ).configure_legend(
         orient='bottom'
     ).properties(
-        title='% Domestic/International Sales' + col_appendix
+        title='Domestic/International Sales' + col_appendix,
+        height=500
     )
 
     ch2 = alt.Chart(df_artist_long.reset_index()).mark_bar().encode(
-        alt.X('Artist', sort=[artist1, artist2]),
-        alt.Y('Sales' + col_appendix, axis=alt.Axis(format=',')),
-        color='Country'
+        alt.X('Artist', sort=artists),
+        alt.Y('Sales' + col_appendix, axis=alt.Axis(labelExpr='datum.value / 1E6 + "M"')),
+        color='Country',
+        tooltip=['Artist:N',
+                 'Country:N',
+                  alt.Tooltip('Sales' + col_appendix  +':Q', format=",")]
     ).interactive().properties(
-        title='Sales' + col_appendix + ' by Country'
+        title='Sales' + col_appendix + ' by Country',
+        height=460
     )
 
     return ch1, ch2
     
+@st.cache_data
+def example_scale_charts():
+
+    ### Domestic/International sales by sale country
+
+    df_sale_country = gen_sale_country_data(df_filtered, col_appendix='', sales_cols='Sales')
+
+    min_sales = 10e6
+    df_sale_country_filt = df_sale_country.loc[df_sale_country['Total'] >= min_sales, ["Total", "Domestic", "International", "% Domestic", "% International"]].reset_index()
+    df_sale_country_filt = df_sale_country_filt.rename({'index': 'Country'}, axis=1)
+    sale_countries = df_sale_country_filt['Country']
+    
+    ch1 = alt.Chart(df_sale_country_filt).mark_bar().transform_fold(
+        fold=['Domestic', 'International'], 
+        as_=['‎', 'Sales']
+    ).encode(
+        y=alt.Y('Sales:Q', axis=alt.Axis(labelExpr='datum.value / 1E9 + "B"')),
+        x=alt.X('Country:N', title=''),
+        color='‎:N',
+        tooltip=['Country:N', 
+                alt.Tooltip('Total:Q', format=","), 
+                alt.Tooltip('Domestic', format=","), 
+                alt.Tooltip('International', format=",")], 
+                # alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
+                # alt.Tooltip('% International' + col_appendix, format=".0f")]
+    ).configure_legend(
+        orient='bottom'
+    ).properties(
+        title='Sales Per Country',
+        height=500
+    )
+
+    col_appendix = ' Scaled'
+    df_sale_country = gen_sale_country_data(df_filtered, col_appendix=col_appendix, sales_cols='Scaled')
+    df_sale_country_filt = df_sale_country[["Total" + col_appendix, "Domestic" + col_appendix, "International" + col_appendix, "% Domestic" + col_appendix,
+                                            "% International" + col_appendix]].reset_index()
+    df_sale_country_filt = df_sale_country_filt[df_sale_country_filt['index'].isin(sale_countries)]
+    df_sale_country_filt = df_sale_country_filt.rename({'index': 'Country'}, axis=1)
+    
+    ch2 = alt.Chart(df_sale_country_filt).mark_bar().transform_fold(
+        fold=['Domestic' + col_appendix, 'International' + col_appendix], 
+        as_=['‎', 'Sales']
+    ).encode(
+        y=alt.Y('Sales:Q', axis=alt.Axis(labelExpr='datum.value / 1E6 + "M"')),
+        x=alt.X('Country:N', title=''),
+        color='‎:N',
+        tooltip=['Country:N', 
+                alt.Tooltip('Total' + col_appendix +':Q', format=","), 
+                alt.Tooltip('Domestic' + col_appendix, format=","), 
+                alt.Tooltip('International' + col_appendix, format=",")], 
+                # alt.Tooltip('% Domestic' + col_appendix, format=".0f"), 
+                # alt.Tooltip('% International' + col_appendix, format=".0f")]
+    ).configure_legend(
+        orient='bottom'
+    ).properties(
+        title='Sales Per Country - Scaled',
+        height=500
+    )
+
+    return ch1, ch2
+
 @st.cache_data
 def get_chart_artists_full(df_sorted_desc, sorted_artists_desc, col_appendix): 
     ch1 = alt.Chart(df_sorted_desc).mark_bar().transform_fold(
@@ -347,8 +420,8 @@ def get_sorted_artists(df_filtered, col_appendix, sort_col, sort_dir):
     return df_sorted_desc, sorted_artists_desc
 
 @st.cache_data 
-def get_comp_data(df_filtered, col_appendix, artist1, artist2):
-    df_artist_comp = df_filtered.copy().filter(items=[artist1, artist2], axis=0)
+def get_comp_data(df_filtered, col_appendix, artists):
+    df_artist_comp = df_filtered.copy().filter(items=artists, axis=0)
     df_artist_comp_sales = df_artist_comp.filter(regex=sales_cols + '\|', axis=1)
     df_artist_comp_sales.columns = df_artist_comp_sales.columns.str.replace(sales_cols + '\|', '', regex=True)
     df_artist_long = pd.melt(df_artist_comp_sales, var_name='Country', value_name='Sales' + col_appendix, ignore_index=False)
@@ -386,6 +459,7 @@ def get_genres(df):
     return sorted(genres)
     
 if __name__ == '__main__':
+    
     df_full = load_data('data/album_sales_wide_5.csv')
     #genres = sorted(list(set(df_full['Genre'])))
     genres = get_genres(df_full)
@@ -416,14 +490,21 @@ if __name__ == '__main__':
         with tab_overview:
             st.write('## Overview')
             st.write(
-                    "Many of the most successful bands and artists are beloved all across the world, having similar levels of popularity both at home and overseas. " + 
+                    "Many of the most successful bands and artists are beloved all across the world, both at home and overseas. " + 
                     "But we're not interested in any of those.\n\n" + 
                     "The purpose of this app is to objectively find the biggest acts that never made it overseas, or who never cracked their home territory. " +
-                    "For the most part, this can be done by comparing domestic and international sales. The main issue with this is that market sizes vary across the world, e.g. " +
+                    "For the most part, this can be done by comparing domestic and international sales. \n\nThe main issue with this is that market sizes vary across the world, e.g. " +
                     "1,000,000 sales in Canada represents far more relative success than 1,000,000 sales in the United States. To remedy this, there is an option to scale the sales " + 
-                    "relative to the market size of each country.\n\n"
-                    "A secondary goal is to see which countries produce the most/best acts relative to their size."
+                    "relative to the market size of each country, as shown below.\n\n‎"
                     )
+            eg1, eg2 = example_scale_charts()
+            col_1_1, col_1_2 = st.columns(2)
+
+            with col_1_1:
+                st.altair_chart(eg1, use_container_width=True)
+            
+            with col_1_2:
+                st.altair_chart(eg2, use_container_width=True)
             # TODO: insert a chart?
             st.write('## Source Data')
             st.write(
@@ -431,15 +512,51 @@ if __name__ == '__main__':
                     "Sales figures are mostly based on certifications, so in most cases sales are understated. More information can be found [here](https://bestsellingalbums.org/about/).\n\n" + 
                     "Artists have been limited to those with at least 500,000 album sales in English speaking countries. This makes the analysis easier and more personally relevant " + 
                     "but will naturally overlook many great artists and music-producing countries.\n\n"
-                    "Whilst every effort has been made to correct data issues, there will inevitably be some inconsistencies, so proceed with caution."
+                    "Whilst every effort has been made to correct data issues, there will inevitably be some inconsistencies, so proceed with caution.\n\n" +
+                    "The repo for the app and data can be found [here](https://github.com/tbennett-ca/album_sales)."
                     )
-            # TODO
-            # st.write('## Notable Findings')
-            # st.write('### Biggest International Artists')
-            # st.write('')
-            # st.write('### Biggest Domestic Artists')
-            # st.write('')
-            # st.write('### Best Countries for Each Genre')
+
+            st.write('## Notable Findings')
+            st.write("### Biggest Artists Who Didn't Succeed At Home")
+
+            st.write("It's difficult to say definitively who are the biggest artists that weren't popular in their home country. Thresholds for what could be considered successful " +
+                     "will vary by country. Nevertheless, here are a few artists that could be contenders for the title."
+                     )
+
+            intl_artists = ['TINA TURNER','THE KILLERS','KINGS OF LEON','ANASTACIA','DEF LEPPARD','OZZY OSBOURNE', 'BAD COMPANY','BUSH','JONI MITCHELL', 'U2','ENYA','THE CRANBERRIES',
+                            'ACE OF BASE', 'AIR SUPPLY', 'MEN AT WORK']
+            df_artist_comp_intl, df_artist_long = get_comp_data(df_filtered, col_appendix, intl_artists)
+            artist_comp_chart_intl, artist_comp_chart_full_intl = get_artist_comp_charts(df_artist_comp_intl, df_artist_long, col_appendix, intl_artists)
+
+            col_2_1, col_2_2 = st.columns(2)
+
+            with col_2_1:
+                st.altair_chart(artist_comp_chart_intl, use_container_width=True)
+            
+            with col_2_2:
+                st.altair_chart(artist_comp_chart_full_intl, use_container_width=True)
+
+            st.write("It's perhaps unfair to say that Def Leppard weren't successful in the UK, however when comparing domestic sales (1.5M) to international sales (44M), the difference " +
+                     "is fairly substantial. It's a similar story for Kings of Leon, The Killers and Tina Turner once you adjust for the size of the US market."
+                     )
+
+            st.write('### Biggest Artists Who Were Never Successful Abroad')
+
+            st.write("Below are some of the most notable examples of artists who were huge in their home country, but had limited success overseas.")
+            
+            dom_artists = ['JOURNEY', 'DAVE MATTHEWS BAND', 'LYNYRD SKYNYRD', 'REO SPEEDWAGON','THE TRAGICALLY HIP', 'STEREOPHONICS', 'BEAUTIFUL SOUTH', 'POWDERFINGER']
+            df_artist_comp_dom, df_artist_long = get_comp_data(df_filtered, col_appendix, dom_artists)
+            artist_comp_chart_dom, artist_comp_chart_full_dom = get_artist_comp_charts(df_artist_comp_dom, df_artist_long, col_appendix, dom_artists)
+
+            col_3_1, col_3_2 = st.columns(2)
+
+            with col_3_1:
+                st.altair_chart(artist_comp_chart_dom, use_container_width=True)
+            
+            with col_3_2:
+                st.altair_chart(artist_comp_chart_full_dom, use_container_width=True)
+            
+            #st.write('### Best Countries for Each Genre')
             # st.write('')
 
         with tab_country_origin:
@@ -526,8 +643,8 @@ if __name__ == '__main__':
                     {'Total' + col_appendix: "{:,.0f}", 'Domestic' + col_appendix: "{:,.0f}", 'International' + col_appendix: "{:,.0f}",
                     '% Domestic' + col_appendix: "{:.1%}", '% International' + col_appendix: "{:.1%}"}))
             
-            df_artist_comp, df_artist_long = get_comp_data(df_filtered, col_appendix, st.session_state.artist1, st.session_state.artist2)
-            artist_comp_chart, artist_comp_chart_full = get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix, st.session_state.artist1, st.session_state.artist2)
+            df_artist_comp, df_artist_long = get_comp_data(df_filtered, col_appendix, [st.session_state.artist1, st.session_state.artist2])
+            artist_comp_chart, artist_comp_chart_full = get_artist_comp_charts(df_artist_comp, df_artist_long, col_appendix, [st.session_state.artist1, st.session_state.artist2])
 
             col_3_1, col_3_2 = st.columns(2)
 
